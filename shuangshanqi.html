@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雙扇棋</title>
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+TC:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#100800;--gold:#c9a84c;--gold2:#e8c97a;
+  --red:#c0392b;--red2:#e05545;
+  --line:rgba(180,140,60,.45);--bd:rgba(180,140,60,.22);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#100800;font-family:'Noto Serif TC',serif;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;color:rgba(220,190,130,.9);}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 60% at 50% 40%,rgba(180,120,20,.07) 0%,transparent 70%);}
+
+header{width:100%;padding:15px 26px 12px;display:flex;align-items:center;
+  justify-content:space-between;border-bottom:1px solid var(--bd);}
+.logo{font-family:'Ma Shan Zheng',serif;font-size:2.1rem;color:var(--gold2);
+  letter-spacing:.15em;text-shadow:0 0 18px rgba(200,160,40,.35);}
+.logo-sub{font-size:.67rem;color:rgba(180,140,60,.45);letter-spacing:.25em;margin-left:10px;vertical-align:middle;}
+
+.layout{display:flex;gap:18px;padding:18px 22px;max-width:1060px;width:100%;
+  align-items:flex-start;flex-wrap:wrap;justify-content:center;}
+
+.panel{display:flex;flex-direction:column;gap:11px;width:185px;flex-shrink:0;}
+.card{background:rgba(255,240,200,.05);border:1px solid var(--bd);border-radius:3px;padding:12px 14px;position:relative;}
+.card::after{content:'';position:absolute;top:0;left:13px;right:13px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(200,160,60,.32),transparent);}
+.ct{font-size:.64rem;color:var(--gold);letter-spacing:.22em;margin-bottom:9px;opacity:.8;}
+
+.mbtn{width:100%;padding:7px 9px;background:transparent;border:1px solid rgba(180,140,60,.26);
+  color:rgba(200,160,80,.72);font-family:'Noto Serif TC',serif;font-size:.76rem;cursor:pointer;
+  border-radius:2px;transition:all .17s;text-align:left;letter-spacing:.04em;margin-bottom:4px;}
+.mbtn:last-child{margin-bottom:0;}
+.mbtn:hover{border-color:var(--gold);color:var(--gold2);background:rgba(180,140,60,.08);}
+.mbtn.active{background:rgba(180,140,60,.16);border-color:var(--gold);color:var(--gold2);}
+
+.abtn{width:100%;padding:6px 9px;background:transparent;border:1px solid rgba(140,110,50,.3);
+  color:rgba(190,160,100,.72);font-family:'Noto Serif TC',serif;font-size:.74rem;cursor:pointer;
+  border-radius:2px;transition:all .17s;letter-spacing:.04em;margin-bottom:4px;}
+.abtn:last-child{margin-bottom:0;}
+.abtn:hover{border-color:rgba(190,160,100,.52);color:rgba(210,180,120,.9);background:rgba(140,110,50,.09);}
+.abtn.r{border-color:rgba(192,57,43,.26);color:rgba(210,90,70,.78);}
+.abtn.r:hover{background:rgba(192,57,43,.09);border-color:rgba(210,90,70,.42);}
+.abtn:disabled{opacity:.28;cursor:not-allowed;}
+
+.tw{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.pd{width:16px;height:16px;border-radius:50%;flex-shrink:0;transition:all .3s;}
+.pd.red{background:radial-gradient(circle at 33% 28%,#e05545,#7a1208);box-shadow:0 0 6px rgba(192,57,43,.38);}
+.pd.blk{background:radial-gradient(circle at 33% 28%,#666,#111);box-shadow:0 0 5px rgba(20,20,20,.5);}
+.pd.dim{opacity:.25;box-shadow:none;}
+.tl{font-size:.78rem;color:var(--gold2);}
+.sm{font-size:.7rem;color:rgba(190,160,100,.62);min-height:1em;line-height:1.5;}
+
+.rb{display:none;padding:8px;text-align:center;border-radius:2px;font-size:.92rem;font-weight:700;letter-spacing:.1em;margin-top:5px;}
+.rb.on{display:block;}
+.rb.rw{background:rgba(192,57,43,.17);color:#e05545;border:1px solid rgba(192,57,43,.36);}
+.rb.bw{background:rgba(20,20,20,.38);color:#bbb;border:1px solid rgba(100,100,100,.32);}
+.rb.dw{background:rgba(180,140,60,.12);color:var(--gold2);border:1px solid rgba(180,140,60,.26);}
+
+.srow{display:flex;justify-content:space-between;align-items:center;padding:3px 0;}
+.sl{font-size:.71rem;color:rgba(190,160,100,.62);}
+.sv{font-size:1rem;font-weight:700;}
+
+.board-wrap{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:13px;}
+svg#board{display:block;filter:drop-shadow(0 5px 24px rgba(0,0,0,.6));}
+
+.abox{font-size:.71rem;color:rgba(190,160,100,.7);line-height:1.9;min-height:65px;}
+.arow{display:flex;justify-content:space-between;padding:3px 5px;
+  border-bottom:1px solid rgba(120,90,40,.13);font-size:.68rem;border-radius:2px;}
+.arow:last-child{border-bottom:none;}
+.arow.best{background:rgba(200,160,50,.14);border:1px solid rgba(200,160,50,.3) !important;
+  border-radius:3px;margin-bottom:1px;}
+.ar{font-weight:700;}
+.ar.r{color:rgba(220,80,60,.88);}
+.ar.b{color:rgba(160,160,160,.88);}
+.ar.d{color:var(--gold2);}
+.ar.u{color:rgba(140,120,90,.58);}
+
+.hl{max-height:110px;overflow-y:auto;font-size:.68rem;color:rgba(180,150,100,.62);line-height:2;
+  scrollbar-width:thin;scrollbar-color:rgba(180,140,60,.22) transparent;}
+.hi{padding:1px 2px;}
+
+.esel{width:100%;background:rgba(18,9,0,.5);border:1px solid rgba(180,140,60,.26);color:var(--gold);
+  font-family:'Noto Serif TC',serif;font-size:.71rem;padding:5px 7px;border-radius:2px;margin-bottom:5px;}
+.eh{font-size:.66rem;color:rgba(170,140,90,.52);line-height:1.5;margin-bottom:5px;}
+
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(16px);
+  background:rgba(14,7,0,.93);border:1px solid rgba(180,140,60,.32);color:var(--gold2);
+  padding:8px 20px;border-radius:3px;font-size:.78rem;letter-spacing:.04em;
+  opacity:0;transition:all .26s;pointer-events:none;z-index:99;white-space:nowrap;}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+.lov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;
+  align-items:center;justify-content:center;flex-direction:column;gap:10px;}
+.lov.on{display:flex;}
+.ls{width:32px;height:32px;border:2px solid rgba(180,140,60,.26);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .72s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.lt{color:var(--gold);font-size:.8rem;letter-spacing:.12em;}
+
+@media(max-width:680px){
+  .panel{width:100%;max-width:340px;flex-direction:row;flex-wrap:wrap;}
+  .card{flex:1 1 145px;}
+  .layout{padding:8px;}
+}
+
+/* 遊戲說明彈窗 */
+.rules-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.85);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.rules-modal.on {
+  display: flex;
+}
+.rules-content {
+  background: #1f1408;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 24px 28px;
+  position: relative;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.rules-content h2 {
+  color: var(--gold2);
+  font-family: 'Ma Shan Zheng', serif;
+  font-size: 1.8rem;
+  text-align: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(180,140,60,.3);
+  padding-bottom: 8px;
+}
+.rules-content h3 {
+  color: var(--gold);
+  font-size: 1rem;
+  margin: 18px 0 8px 0;
+  letter-spacing: 2px;
+}
+.rules-content p, .rules-content li {
+  color: rgba(220,190,130,.85);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.rules-content ul {
+  margin: 8px 0 8px 20px;
+}
+.rules-close {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 28px;
+  cursor: pointer;
+  font-family: monospace;
+}
+.rules-close:hover {
+  color: var(--red2);
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <span class="logo">雙扇棋</span>
+    <span class="logo-sub">SHUANGSHANQI</span>
+  </div>
+  <span id="aiLabel" style="font-size:.66rem;color:rgba(180,140,60,.4);letter-spacing:.1em;">載入完美解中…</span>
+</header>
+
+<div class="layout">
+
+  <!-- 左側 -->
+  <div class="panel">
+    <div class="card">
+      <div class="ct">對弈模式</div>
+      <button class="mbtn active" onclick="setMode('pvp')" data-m="pvp">⚔ 雙人對戰</button>
+      <button class="mbtn" onclick="setMode('pva')" data-m="pva">🤖 人機（人先）</button>
+      <button class="mbtn" onclick="setMode('avp')" data-m="avp">🤖 人機（AI先）</button>
+      <button class="mbtn" onclick="showRules()">📖 遊戲說明</button>
+    </div>
+
+    <div class="card">
+      <div class="ct">局面操作</div>
+      <button class="abtn" id="btnUndo" onclick="undoMove()" disabled>↩ 悔棋</button>
+      <button class="abtn" id="btnEdit" onclick="toggleEdit()">✏ 編輯局面</button>
+      <button class="abtn" onclick="analyzePos()">🔍 AI 分析</button>
+      <button class="abtn r" onclick="resetGame()">↺ 重新開始</button>
+      <div id="editCtrl" style="display:none;margin-top:9px;">
+        <select class="esel" id="selPiece">
+          <option value="0">空格</option>
+          <option value="1">🔴 紅子</option>
+          <option value="2">⚫ 黑子</option>
+        </select>
+        <div class="eh">選好棋子類型後點擊節點放置</div>
+        <select class="esel" id="selPlayer">
+          <option value="1">紅方先手</option>
+          <option value="2">黑方先手</option>
+        </select>
+        <button class="abtn" onclick="confirmEdit()" style="margin-top:3px;">✔ 確認編輯</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">對局狀態</div>
+      <div class="tw">
+        <div class="pd red" id="dotR"></div>
+        <span class="tl" id="turnLbl">紅方回合</span>
+        <div class="pd blk dim" id="dotB"></div>
+      </div>
+      <div class="sm" id="smsg">請選擇棋子</div>
+      <div class="rb" id="rbanner"></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">計分板</div>
+      <div class="srow"><span class="sl">🔴 紅方</span><span class="sv" style="color:var(--red2);" id="sc1">0</span></div>
+      <div class="srow"><span class="sl">⚫ 黑方</span><span class="sv" style="color:#bbb;" id="sc2">0</span></div>
+      <div class="srow"><span class="sl">🤝 和局</span><span class="sv" style="color:var(--gold);font-size:.88rem;" id="scd">0</span></div>
+    </div>
+  </div>
+
+  <!-- 棋盤 -->
+  <div class="board-wrap">
+    <svg id="board" width="380" height="420" viewBox="-10 -10 400 440"></svg>
+    <div class="card" style="width:380px;">
+      <div class="ct">移動記錄</div>
+      <div class="hl" id="hlist"></div>
+    </div>
+  </div>
+
+  <!-- 右側 -->
+  <div class="panel">
+    <div class="card">
+      <div class="ct">AI 分析</div>
+      <div class="abox" id="anaBox"><span style="color:rgba(170,140,90,.35);">點擊「AI 分析」查看分析</span></div>
+    </div>
+    <div class="card">
+      <div class="ct">走法評估</div>
+      <div id="mvAna" class="abox"><span style="color:rgba(170,140,90,.35);">—</span></div>
+    </div>
+    <div class="card">
+      <div class="ct">棋子數量</div>
+      <div style="font-size:.75rem;line-height:2.2;">
+        <div>🔴 紅方：<span id="cntR" style="color:var(--red2);font-weight:700;">6</span> 枚</div>
+        <div>⚫ 黑方：<span id="cntB" style="color:#bbb;font-weight:700;">6</span> 枚</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">規則說明</div>
+      <div style="font-size:.67rem;color:rgba(170,140,90,.58);line-height:2.1;">
+        <div>普通移動：沿線移一格到空位</div>
+        <div>跳吃：越過對方子到空位</div>
+        <div>勝：吃光對方所有棋子</div>
+        <div>和：雙方各剩 1 子</div>
+        <div style="margin-top:5px;opacity:.6;">紅初始：下扇 7-12</div>
+        <div style="opacity:.6;">黑初始：上扇 1-6</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="lov" id="lov"><div class="ls"></div><div class="lt">AI 思考中…</div></div>
+
+<div id="rulesModal" class="rules-modal">
+  <div class="rules-content">
+    <button class="rules-close" onclick="closeRules()">&times;</button>
+    <h2>📜 雙扇棋</h2>
+
+    <h3>🎯 遊戲目標</h3>
+    <p>吃光對方所有棋子，即獲得勝利。</p>
+
+    <h3>♟️ 棋子與佈局</h3>
+    <p>棋盤共有 13 個節點（中心點 + 上下兩扇各 6 個節點）。<br>
+      🔴 紅方棋子初始位於下扇（節點 7～12）<br>
+      ⚫ 黑方棋子初始位於上扇（節點 1～6）<br>
+      雙方各有 6 枚棋子。</p>
+
+    <h3>🚶 移動規則</h3>
+    <ul>
+      <li><strong>普通移動</strong>：沿著棋盤上的線，移動 <strong>1 格</strong> 到相鄰的空節點。</li>
+      <li><strong>跳吃</strong>：沿直線越過相鄰的對方棋子，落到後方的空位，被越過的對方棋子被吃掉。</li>
+      <li>跳吃時，跳躍路徑中間必須有且僅有一枚對方棋子，目標格必須為空。</li>
+    </ul>
+
+    <h3>🏆 勝負與和局</h3>
+    <ul>
+      <li>一方棋子全被吃光 → 另一方獲勝。</li>
+      <li>雙方各只剩 1 枚棋子 → 和局。</li>
+    </ul>
+
+    <h3>🤖 人機功能</h3>
+    <p>內建「完美解」AI 引擎（需載入 shuangshanqi.bin）。<br>
+      點擊「AI 分析」可查看當前局面的最佳走法與勝負預測。</p>
+
+    <h3>✏️ 編輯局面</h3>
+    <p>可自由擺放棋子、切換先手，自訂對戰情境。</p>
+
+    <p style="text-align:center; margin-top:24px; font-size:0.75rem; opacity:0.6;">—— 雙扇棋 · 古韻新弈 ——</p>
+
+    <!-- 新增的開始對弈按鈕 -->
+    <div style="text-align:center; margin-top:20px;">
+      <button class="abtn" onclick="startGameFromRules()" style="display:inline-block; padding:8px 24px;">🎮 開始對弈</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// 棋盤資料（與 solver 完全一致）
+// 0=中心  上扇內1-3 外4-6  下扇內7-9 外10-12
+// ═══════════════════════════════════════════
+const NBR = [
+  [1,2,3,7,8,9],
+  [0,2,4],[0,1,3,5],[0,2,6],
+  [1,5],[2,4,6],[3,5],
+  [0,8,10],[0,7,9,11],[0,8,12],
+  [7,11],[8,10,12],[9,11]
+];
+const LINES = [
+  [4,1,0,7,10],[5,2,0,8,11],[6,3,0,9,12],
+  [1,2,3],[4,5,6],[7,8,9],[10,11,12]
+];
+const JUMPS = Array.from({length:13}, () => []);
+for (const ln of LINES) {
+  for (let i = 0; i+2 < ln.length; i++) {
+    const [a, ov, b] = [ln[i], ln[i+1], ln[i+2]];
+    JUMPS[a].push([ov, b]);
+    JUMPS[b].push([ov, a]);
+  }
+}
+const NN = ['中心','節1','節2','節3','節4','節5','節6','節7','節8','節9','節10','節11','節12'];
+
+function getMoves(bd, pl) {
+  const op = 3-pl, mv = [];
+  for (let p = 0; p < 13; p++) {
+    if (bd[p] !== pl) continue;
+    for (const nb of NBR[p]) if (bd[nb] === 0) mv.push({f:p, t:nb, c:-1});
+    for (const [ov, to] of JUMPS[p]) if (bd[ov] === op && bd[to] === 0) mv.push({f:p, t:to, c:ov});
+  }
+  return mv;
+}
+function applyMv(bd, mv) {
+  const n = [...bd]; n[mv.t] = n[mv.f]; n[mv.f] = 0;
+  if (mv.c >= 0) n[mv.c] = 0; return n;
+}
+function terminal(bd) {
+  const r = bd.filter(x=>x===1).length, b = bd.filter(x=>x===2).length;
+  if (r===0) return 2; if (b===0) return 1; if (r===1&&b===1) return 3; return 0;
+}
+
+// ═══════════════════════════════════════════
+// 完美解查表 AI（shuangshanqi.bin）
+// Header "SSQI0001"(8) + N(i32,4) + N×12bytes
+// 每筆：state_id(i32) + best_move_id(i32) + result(u8) + pad(3)
+// 編碼：v = Σ board[i]*3^i；sid = v*2 + (player-1)
+// ═══════════════════════════════════════════
+const POW3 = (() => { const a=[1]; for(let i=1;i<13;i++) a.push(a[i-1]*3); return a; })();
+
+function encodeState(bd, pl) {
+  let v = 0;
+  for (let i = 0; i < 13; i++) v += bd[i] * POW3[i];
+  return v * 2 + (pl - 1);
+}
+
+let solveTable = null;   // null|'loading'|'ready'|'error'
+let solveTableData = null;
+
+async function loadSolveTable() {
+  if (solveTable !== null) return;
+  solveTable = 'loading';
+  try {
+    const resp = await fetch('shuangshanqi.bin');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const buf = await resp.arrayBuffer();
+    const dv = new DataView(buf);
+    const hdr = String.fromCharCode(...new Uint8Array(buf, 0, 8));
+    if (hdr !== 'SSQI0001') throw new Error('bin 格式錯誤');
+    const N = dv.getInt32(8, true);
+    const tbl = new Map();
+    let off = 12;
+    for (let i = 0; i < N; i++, off += 12) {
+      tbl.set(dv.getInt32(off, true), {
+        bmid: dv.getInt32(off+4, true),
+        res:  dv.getUint8(off+8)
+      });
+    }
+    solveTableData = tbl;
+    solveTable = 'ready';
+    const lbl = document.getElementById('aiLabel');
+    if (lbl) { lbl.textContent='完美解 AI · 強解查表'; lbl.style.color='rgba(180,200,100,.55)'; }
+    showToast(`完美解已載入（${N.toLocaleString()} 局面）`);
+  } catch(e) {
+    solveTable = 'error';
+    const lbl = document.getElementById('aiLabel');
+    if (lbl) { lbl.textContent='查表 AI 未載入'; lbl.style.color='rgba(180,140,60,.4)'; }
+    console.warn('shuangshanqi.bin 載入失敗：', e);
+    showToast('bin 檔載入失敗，AI 功能停用');
+  }
+}
+
+function bmidToMove(bd, pl, bmid) {
+  for (const mv of getMoves(bd, pl)) {
+    if (encodeState(applyMv(bd, mv), 3-pl) === bmid) return mv;
+  }
+  return getMoves(bd, pl)[0] || null;
+}
+
+// 顯示遊戲說明彈窗
+function showRules() {
+  const modal = document.getElementById('rulesModal');
+  if (modal) modal.classList.add('on');
+}
+
+// 關閉遊戲說明彈窗
+function closeRules() {
+  const modal = document.getElementById('rulesModal');
+  if (modal) modal.classList.remove('on');
+}
+
+// 點擊彈窗背景也可關閉（選用）
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('rulesModal');
+  if (modal && modal.classList.contains('on') && e.target === modal) {
+    closeRules();
+  }
+});
+
+function startGameFromRules() {
+  closeRules();
+
+}
+
+function bestMoveFromTable(bd, pl) {
+  if (!solveTableData) return null;
+  const rec = solveTableData.get(encodeState(bd, pl));
+  if (!rec || rec.bmid === -1) return null;
+  return bmidToMove(bd, pl, rec.bmid);
+}
+
+function tableResult(bd, pl) {
+  if (!solveTableData) return null;
+  const rec = solveTableData.get(encodeState(bd, pl));
+  return rec ? rec.res : null;
+}
+
+function bestMove(bd, pl) { return bestMoveFromTable(bd, pl); }
+
+function analyzeMoves(bd, pl) {
+  return getMoves(bd, pl).map(mv => {
+    const nbd = applyMv(bd, mv), npl = 3-pl;
+    let val=0, tag='未知';
+    if (solveTable === 'ready') {
+      const nr = tableResult(nbd, npl);
+      if      (nr === npl) { val=-9999; tag='對方必勝'; }
+      else if (nr === pl)  { val= 9999; tag='我方必勝'; }
+      else if (nr === 3)   { val=    0; tag='和局';     }
+    }
+    return {...mv, val, tag};
+  }).sort((a,b) => b.val - a.val);
+}
+
+// ═══════════════════════════════════════════
+// 棋盤幾何：雙扇形
+// SVG 畫布 380×420，內邊距 -10 -10 400 440
+// 中心 CX=190, CY=210
+// 上扇（黑）：放射角 210/270/330°
+// 下扇（紅）：放射角 30/90/150°
+// ═══════════════════════════════════════════
+const CX=190, CY=210, R1=90, R2=168;
+
+function polar(r, deg) {
+  const a = deg * Math.PI / 180;
+  return [CX + r*Math.cos(a), CY + r*Math.sin(a)];
+}
+
+// 上扇：角度 210°（左）270°（上中）330°（右）
+const ANG_UP   = [210, 270, 330];
+// 下扇：角度 30°（右）90°（下中）150°（左）
+const ANG_DOWN = [30, 90, 150];
+
+const POS = new Array(13);
+POS[0] = [CX, CY];
+[0,1,2].forEach(i => { POS[i+1]  = polar(R1, ANG_UP[i]);   });  // 1,2,3 上扇內
+[0,1,2].forEach(i => { POS[i+4]  = polar(R2, ANG_UP[i]);   });  // 4,5,6 上扇外
+[0,1,2].forEach(i => { POS[i+7]  = polar(R1, ANG_DOWN[i]); });  // 7,8,9 下扇內
+[0,1,2].forEach(i => { POS[i+10] = polar(R2, ANG_DOWN[i]); });  // 10,11,12 下扇外
+
+// ═══════════════════════════════════════════
+// 遊戲狀態
+// ═══════════════════════════════════════════
+let board, player, sel, avail, over, editMode, mode, hist;
+let anaHighlight = null; // {f, t} 分析高亮最佳走法
+const scores = {1:0, 2:0, d:0};
+
+function freshBoard() {
+  const b = new Array(13).fill(0);
+  for (let i=7;i<=12;i++) b[i]=1;
+  for (let i=1;i<=6;i++)  b[i]=2;
+  return b;
+}
+
+function initGame() {
+  board=freshBoard(); player=1; sel=-1; avail=[]; over=false; editMode=false; hist=[]; anaHighlight=null;
+  document.getElementById('hlist').innerHTML='';
+  document.getElementById('rbanner').className='rb';
+  document.getElementById('btnUndo').disabled=true;
+  document.getElementById('editCtrl').style.display='none';
+  document.getElementById('btnEdit').textContent='✏ 編輯局面';
+  document.getElementById('anaBox').innerHTML='<span style="color:rgba(170,140,90,.35);">點擊「AI 分析」查看分析</span>';
+  document.getElementById('mvAna').innerHTML='<span style="color:rgba(170,140,90,.35);">—</span>';
+  render();
+  if (mode==='avp') setTimeout(doAI, 450);
+}
+function resetGame() { editMode=false; initGame(); }
+function setMode(m) {
+  mode=m;
+  document.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('active',b.dataset.m===m));
+  resetGame();
+  showToast({pvp:'雙人對戰',pva:'人機（人先）',avp:'人機（AI先）'}[m]);
+}
+
+// ═══════════════════════════════════════════
+// SVG 建構
+// ═══════════════════════════════════════════
+const svg = document.getElementById('board');
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k,v] of Object.entries(attrs)) e.setAttribute(k,v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// SVG arc：以 (CX,CY) 為圓心，半徑 r，從 startDeg 到 endDeg，sweep=1 順時針
+function arcPath(r, startDeg, endDeg, sweep=1) {
+  const [x1,y1] = polar(r, startDeg);
+  const [x2,y2] = polar(r, endDeg);
+  return `M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 0,${sweep} ${x2.toFixed(2)},${y2.toFixed(2)}`;
+}
+
+function buildSVG() {
+  svg.innerHTML = `
+  <defs>
+    <radialGradient id="gBg" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#2a1500" stop-opacity=".97"/>
+      <stop offset="100%" stop-color="#0d0700"/>
+    </radialGradient>
+    <radialGradient id="gRed" cx="33%" cy="28%" r="68%">
+      <stop offset="0%" stop-color="#e05545"/>
+      <stop offset="100%" stop-color="#6e0f07"/>
+    </radialGradient>
+    <radialGradient id="gBlk" cx="33%" cy="28%" r="68%">
+      <stop offset="0%" stop-color="#686868"/>
+      <stop offset="100%" stop-color="#0e0e0e"/>
+    </radialGradient>
+    <radialGradient id="gEmp" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7a5c30" stop-opacity=".25"/>
+      <stop offset="100%" stop-color="#3a2810" stop-opacity=".07"/>
+    </radialGradient>
+    <filter id="fR"><feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
+    <filter id="fB"><feGaussianBlur stdDeviation="2.6" result="b"/>
+      <feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
+    <filter id="fS"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,.5)"/></filter>
+    <filter id="fGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="-10" y="-10" width="400" height="440" rx="8" fill="url(#gBg)"/>
+  <g id="gLn"/><g id="gAr"/><g id="gHL"/><g id="gNd"/><g id="gHn"/>`;
+  drawStatic();
+}
+
+function drawStatic() {
+  const LC = 'rgba(165,125,52,.52)';
+  const SW = '1.7';
+  const gLn = document.getElementById('gLn');
+  const gAr = document.getElementById('gAr');
+
+  // 上扇：3條放射線 中心→外弧節點 4/5/6
+  [4,5,6].forEach(nd => {
+    const [x1,y1]=POS[0], [x2,y2]=POS[nd];
+    el('line',{x1,y1,x2,y2,stroke:LC,'stroke-width':SW,'stroke-linecap':'round'},gLn);
+  });
+  // 下扇：3條放射線 中心→外弧節點 10/11/12
+  [10,11,12].forEach(nd => {
+    const [x1,y1]=POS[0], [x2,y2]=POS[nd];
+    el('line',{x1,y1,x2,y2,stroke:LC,'stroke-width':SW,'stroke-linecap':'round'},gLn);
+  });
+
+  // 上扇弧：內弧 1-2-3（210→330 順時針）
+  el('path',{d:arcPath(R1,210,330,1),fill:'none',stroke:LC,'stroke-width':SW,'stroke-linecap':'round'},gAr);
+  // 上扇弧：外弧 4-5-6（210→330 順時針）
+  el('path',{d:arcPath(R2,210,330,1),fill:'none',stroke:LC,'stroke-width':SW,'stroke-linecap':'round'},gAr);
+
+  // 下扇弧：內弧 7-8-9（30→150 順時針）
+  el('path',{d:arcPath(R1,30,150,1),fill:'none',stroke:LC,'stroke-width':SW,'stroke-linecap':'round'},gAr);
+  // 下扇弧：外弧 10-11-12（30→150 順時針）
+  el('path',{d:arcPath(R2,30,150,1),fill:'none',stroke:LC,'stroke-width':SW,'stroke-linecap':'round'},gAr);
+}
+
+// 分析高亮層
+function drawHighlight() {
+  const g = document.getElementById('gHL'); g.innerHTML='';
+  if (!anaHighlight) return;
+  const {f, t} = anaHighlight;
+  const [fx,fy]=POS[f], [tx,ty]=POS[t];
+  // 連線
+  el('line',{x1:fx,y1:fy,x2:tx,y2:ty,
+    stroke:'rgba(230,210,60,.6)','stroke-width':'3.5','stroke-linecap':'round',
+    filter:'url(#fGlow)'},g);
+  // 起點虛線圈
+  el('circle',{cx:fx,cy:fy,r:20,fill:'none',
+    stroke:'rgba(230,210,60,.45)','stroke-width':'1.8','stroke-dasharray':'5,3.5'},g);
+  // 終點實線圈
+  el('circle',{cx:tx,cy:ty,r:20,
+    fill:'rgba(230,210,60,.09)',stroke:'rgba(230,210,60,.65)','stroke-width':'2'},g);
+}
+
+function drawNodes() {
+  const g = document.getElementById('gNd'); g.innerHTML='';
+  for (let i=0;i<13;i++) {
+    const [x,y]=POS[i], v=board[i], isS=(i===sel), r=14;
+    if (isS) {
+      el('circle',{cx:x,cy:y,r:r+7,fill:'none',
+        stroke:v===1?'rgba(224,85,69,.52)':'rgba(200,200,200,.42)',
+        'stroke-width':'1.7','stroke-dasharray':'4,3'},g);
+    }
+    const c=el('circle',{cx:x,cy:y,r,
+      fill:v===1?'url(#gRed)':v===2?'url(#gBlk)':'url(#gEmp)',
+      stroke:v===1?'rgba(220,75,55,.52)':v===2?'rgba(90,90,90,.42)':'rgba(110,85,35,.22)',
+      'stroke-width':v?'1.4':'0.9',
+      filter:isS?(v===1?'url(#fR)':'url(#fB)'):'url(#fS)',
+      cursor:editMode?'cell':'pointer'},g);
+    c.addEventListener('click',()=>onNode(i));
+    if (v) {
+      el('ellipse',{cx:x-r*.2,cy:y-r*.25,rx:r*.33,ry:r*.17,
+        fill:'rgba(255,255,255,.16)','pointer-events':'none'},g);
+    } else {
+      el('circle',{cx:x,cy:y,r:3,fill:'rgba(110,85,35,.35)','pointer-events':'none'},g);
+    }
+  }
+}
+
+function drawHints() {
+  const g=document.getElementById('gHn'); g.innerHTML='';
+  const targets=new Set(avail.map(m=>m.t));
+  for (const to of targets) {
+    const [x,y]=POS[to], isCap=avail.some(m=>m.t===to&&m.c>=0);
+    const ring=el('circle',{cx:x,cy:y,r:20,
+      fill:isCap?'rgba(220,80,60,.1)':'rgba(200,160,50,.08)',
+      stroke:isCap?'rgba(220,80,60,.46)':'rgba(200,160,50,.36)',
+      'stroke-width':'1.4',cursor:'pointer'},g);
+    ring.addEventListener('click',()=>onNode(to));
+    el('circle',{cx:x,cy:y,r:5,fill:isCap?'rgba(220,80,60,.62)':'rgba(200,160,50,.52)',
+      'pointer-events':'none'},g);
+  }
+}
+
+function render() { drawHighlight(); drawNodes(); drawHints(); updateUI(); }
+
+// ═══════════════════════════════════════════
+// 點擊邏輯
+// ═══════════════════════════════════════════
+function onNode(i) {
+  if (over) return;
+  if (editMode) { board[i]=parseInt(document.getElementById('selPiece').value); render(); return; }
+  if ((mode==='pva'&&player===2)||(mode==='avp'&&player===1)) return;
+  anaHighlight=null;
+  if (sel===-1) {
+    if (board[i]===player) { sel=i; avail=getMoves(board,player).filter(m=>m.f===i); render(); }
+  } else {
+    const mv=avail.find(m=>m.t===i);
+    if (mv) doMove(mv);
+    else if (board[i]===player) { sel=i; avail=getMoves(board,player).filter(m=>m.f===i); render(); }
+    else { sel=-1; avail=[]; render(); }
+  }
+}
+
+// ═══════════════════════════════════════════
+// 移動
+// ═══════════════════════════════════════════
+function doMove(mv) {
+  anaHighlight=null;
+  hist.push({bd:[...board],pl:player,mv});
+  document.getElementById('btnUndo').disabled=false;
+  board=applyMv(board,mv);
+  const cap=mv.c>=0?`（吃${NN[mv.c]}）`:'';
+  addHist(`${player===1?'🔴':'⚫'} ${NN[mv.f]}→${NN[mv.t]}${cap}`);
+  sel=-1; avail=[];
+  const t=terminal(board);
+  if (t) {
+    over=true;
+    const tx=['','紅方勝！','黑方勝！','和局！'][t];
+    const cs=['','rw','bw','dw'][t];
+    const bn=document.getElementById('rbanner');
+    bn.textContent=tx; bn.className='rb on '+cs;
+    if(t===1)scores[1]++;else if(t===2)scores[2]++;else scores.d++;
+    updateScores(); render(); return;
+  }
+  player=3-player; render();
+  if ((mode==='pva'&&player===2)||(mode==='avp'&&player===1)) setTimeout(doAI,380);
+}
+
+function doAI() {
+  if (over) return;
+  showLov(true);
+  setTimeout(()=>{
+    const mv=bestMove(board,player);
+    showLov(false);
+    if (mv) doMove(mv);
+    else showToast('AI 無走法（bin 未載入？）');
+  },20);
+}
+
+function undoMove() {
+  if (!hist.length) return;
+  const steps=(mode!=='pvp'&&hist.length>=2)?2:1;
+  for (let i=0;i<steps&&hist.length;i++){const h=hist.pop();board=h.bd;player=h.pl;}
+  sel=-1; avail=[]; over=false; anaHighlight=null;
+  document.getElementById('rbanner').className='rb';
+  document.getElementById('btnUndo').disabled=!hist.length;
+  const hl=document.getElementById('hlist');
+  for (let i=0;i<steps&&hl.lastChild;i++) hl.removeChild(hl.lastChild);
+  render();
+}
+
+function toggleEdit() {
+  editMode=!editMode;
+  document.getElementById('btnEdit').textContent=editMode?'✏ 編輯中…':'✏ 編輯局面';
+  document.getElementById('editCtrl').style.display=editMode?'block':'none';
+  if (editMode){sel=-1;avail=[];anaHighlight=null;}
+  render();
+  if (editMode) showToast('選好棋子類型，點擊節點放置');
+}
+
+function confirmEdit() {
+  editMode=false;
+  document.getElementById('btnEdit').textContent='✏ 編輯局面';
+  document.getElementById('editCtrl').style.display='none';
+  player=parseInt(document.getElementById('selPlayer').value);
+  over=false; hist=[]; anaHighlight=null;
+  document.getElementById('hlist').innerHTML='';
+  document.getElementById('rbanner').className='rb';
+  render(); showToast('局面已更新');
+  if ((mode==='avp'&&player===1)||(mode==='pva'&&player===2)) setTimeout(doAI,450);
+}
+
+// ═══════════════════════════════════════════
+// AI 分析（高亮最佳走法）
+// ═══════════════════════════════════════════
+function analyzePos() {
+  showLov(true);
+  setTimeout(()=>{
+    const t=terminal(board);
+    const ab=document.getElementById('anaBox');
+    const mb=document.getElementById('mvAna');
+    if (t) {
+      const lbl=['','紅方勝','黑方勝','和局'][t];
+      const col=t===1?'var(--red2)':t===2?'#bbb':'var(--gold2)';
+      ab.innerHTML=`<span style="color:${col};font-weight:700;font-size:.86rem;">${lbl}（終局）</span>`;
+      mb.innerHTML='<span style="color:rgba(170,140,90,.35);">已終局</span>';
+      anaHighlight=null; render(); showLov(false); return;
+    }
+    const mvs=analyzeMoves(board,player);
+    const best=mvs[0];
+
+    // 高亮最佳走法到棋盤
+    anaHighlight = best ? {f:best.f, t:best.t} : null;
+
+    // 局面總評
+    let ol;
+    if (solveTable!=='ready') {
+      ol='bin 未載入，無法分析';
+    } else if (!best) {
+      ol='無走法';
+    } else {
+      const bv=best.val;
+      if      (bv>= 9000) ol=`${player===1?'紅方':'黑方'}必勝`;
+      else if (bv<=-9000) ol=`${player===1?'黑方':'紅方'}必勝`;
+      else                ol='雙方和局（完美對弈）';
+    }
+
+    ab.innerHTML=`<div style="color:var(--gold2);font-weight:700;font-size:.83rem;margin-bottom:4px;">${ol}</div>
+      <div style="font-size:.67rem;color:rgba(170,140,90,.52);">完美解查表 · ${mvs.length} 個走法</div>`;
+
+    const tc=tag=>tag==='我方必勝'?'r':tag==='對方必勝'?'b':tag==='和局'?'d':'u';
+    mb.innerHTML=mvs.slice(0,8).map((m,idx)=>{
+      const cap=m.c>=0?'✂':'';
+      const isBest=idx===0;
+      return `<div class="arow${isBest?' best':''}">
+        <span style="color:rgba(170,140,90,.7);font-size:.67rem;">${isBest?'★ ':''}${NN[m.f]}→${NN[m.t]}${cap}</span>
+        <span class="ar ${tc(m.tag)}">${m.tag}</span>
+      </div>`;
+    }).join('');
+
+    render(); showLov(false);
+  },30);
+}
+
+// ═══════════════════════════════════════════
+// UI 工具
+// ═══════════════════════════════════════════
+function updateUI() {
+  if (over) return;
+  const isAI=(mode==='pva'&&player===2)||(mode==='avp'&&player===1);
+  document.getElementById('dotR').classList.toggle('dim',player!==1);
+  document.getElementById('dotB').classList.toggle('dim',player!==2);
+  document.getElementById('turnLbl').textContent=player===1?'紅方回合':'黑方回合';
+  document.getElementById('smsg').textContent=
+    editMode?'編輯模式':isAI?'AI 思考中…':sel>=0?`已選 ${NN[sel]}`:'請選擇棋子';
+  document.getElementById('cntR').textContent=board.filter(x=>x===1).length;
+  document.getElementById('cntB').textContent=board.filter(x=>x===2).length;
+}
+function updateScores() {
+  document.getElementById('sc1').textContent=scores[1];
+  document.getElementById('sc2').textContent=scores[2];
+  document.getElementById('scd').textContent=scores.d;
+}
+function addHist(txt) {
+  const l=document.getElementById('hlist');
+  const d=document.createElement('div'); d.className='hi';
+  d.textContent=`${hist.length}. ${txt}`; l.appendChild(d); l.scrollTop=l.scrollHeight;
+}
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2500);
+}
+function showLov(v) { document.getElementById('lov').classList.toggle('on',v); }
+
+// ═══════════════════════════════════════════
+// 啟動
+// ═══════════════════════════════════════════
+mode='pvp';
+buildSVG();
+initGame();
+loadSolveTable();
+</script>
+</body>
+</html>

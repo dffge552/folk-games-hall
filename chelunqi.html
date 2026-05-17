@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>車輪棋</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Courier+Prime:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0d0d0f;
+    --panel: #141418;
+    --border: #2a2a32;
+    --gold: #c9a84c;
+    --gold2: #e8c96a;
+    --red: #c0392b;
+    --blue: #2980b9;
+    --p1c: #e8c96a;
+    --p2c: #5dade2;
+    --text: #e8e0d0;
+    --muted: #7a7060;
+    --win: #27ae60;
+    --board-bg: #1a1510;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif TC', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 10px 40px;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, rgba(201,168,76,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 90%, rgba(41,128,185,0.04) 0%, transparent 60%);
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(201,168,76,0.3);
+    margin-bottom: 3px;
+  }
+  .subtitle {
+    font-size: 0.72rem;
+    letter-spacing: 0.35em;
+    color: var(--muted);
+    margin-bottom: 20px;
+    font-family: 'Courier Prime', monospace;
+  }
+
+  .modes {
+    display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; justify-content: center;
+  }
+  .mode-btn {
+    padding: 7px 18px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    color: var(--muted);
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+  .mode-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .mode-btn.active { background: var(--gold); border-color: var(--gold); color: #0d0d0f; font-weight: 700; }
+
+  .main {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 860px;
+  }
+
+  .board-wrap {
+    position: relative;
+    background: var(--board-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  #board-svg { display: block; width: 320px; height: 320px; }
+
+  .side {
+    display: flex; flex-direction: column; gap: 11px;
+    min-width: 200px; max-width: 230px; flex: 1;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 13px 15px;
+  }
+  .card h3 {
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    margin-bottom: 9px;
+    font-family: 'Courier Prime', monospace;
+    text-transform: uppercase;
+  }
+
+  .turn-row { display: flex; align-items: center; gap: 9px; font-size: 0.95rem; font-weight: 700; }
+  .tdot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+  .tdot.p1 { background: var(--p1c); box-shadow: 0 0 8px var(--p1c); }
+  .tdot.p2 { background: var(--p2c); box-shadow: 0 0 8px var(--p2c); }
+
+  .phase-tag {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 0.7rem; font-family: 'Courier Prime', monospace;
+    letter-spacing: 0.1em; margin-top: 7px;
+  }
+  .phase-tag.place { background: rgba(201,168,76,0.12); color: var(--gold); border: 1px solid rgba(201,168,76,0.25); }
+  .phase-tag.move  { background: rgba(93,173,226,0.1);  color: var(--p2c); border: 1px solid rgba(93,173,226,0.25); }
+
+  .srow { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .srow:last-child { border-bottom: none; }
+  .slabel { font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+  .spip { width: 9px; height: 9px; border-radius: 50%; }
+  .sval { font-family: 'Courier Prime', monospace; font-size: 0.9rem; font-weight: 700; }
+  .sval.p1 { color: var(--p1c); }
+  .sval.p2 { color: var(--p2c); }
+
+  .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn {
+    flex: 1; min-width: 60px;
+    padding: 8px 8px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: 'Noto Serif TC', serif; font-size: 0.82rem;
+    cursor: pointer; transition: all 0.18s; text-align: center;
+  }
+  .btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.06); }
+  .btn.danger:hover { border-color: var(--red); color: var(--red); background: rgba(192,57,43,0.06); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  #log {
+    background: #090909;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    height: 115px;
+    overflow-y: auto;
+    line-height: 1.75;
+    white-space: pre-wrap;
+  }
+  .le { display: block; }
+  .le.p1  { color: var(--p1c); }
+  .le.p2  { color: var(--p2c); }
+  .le.sys { color: var(--gold); }
+  .le.err { color: var(--red); }
+
+  #analysis-box {
+    background: rgba(201,168,76,0.05);
+    border: 1px solid rgba(201,168,76,0.18);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.85;
+    display: none;
+  }
+  #analysis-box.show { display: block; }
+  .alab { font-size: 0.65rem; letter-spacing: 0.18em; color: var(--muted); margin-bottom: 5px; font-family: 'Courier Prime', monospace; }
+  .sw { font-weight: 700; font-size: 1rem; }
+  .sw.win  { color: var(--win); }
+  .sw.lose { color: var(--red); }
+  .sw.draw { color: var(--muted); }
+
+  /* edit toolbar */
+  .edit-bar {
+    display: none; flex-wrap: wrap; gap: 6px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 12px;
+    justify-content: center;
+  }
+  .edit-bar.show { display: flex; }
+  .eb {
+    padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    font-family: 'Noto Serif TC', serif; font-size: 0.78rem;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .eb:hover { border-color: var(--gold); color: var(--gold); }
+  .eb.ap1.active, .eb.ap1:hover { border-color: var(--p1c); color: var(--p1c); background: rgba(232,201,106,0.08); }
+  .eb.ap2.active, .eb.ap2:hover { border-color: var(--p2c); color: var(--p2c); background: rgba(93,173,226,0.08); }
+  .eb.active { background: var(--gold); border-color: var(--gold); color: #0d0d0f; font-weight: 700; }
+  .eb.clr:hover { border-color: var(--red); color: var(--red); }
+  .eb.go { border-color: var(--win); color: var(--win); }
+  .eb.go:hover { background: rgba(39,174,96,0.1); }
+
+  /* AI badge */
+  .ai-row { display: flex; align-items: center; gap: 7px; font-size: 0.75rem; color: var(--muted); margin-top: 5px; }
+  .ai-badge {
+    padding: 2px 8px; border-radius: 10px;
+    background: rgba(93,173,226,0.1); border: 1px solid rgba(93,173,226,0.22);
+    color: var(--p2c); font-family: 'Courier Prime', monospace; font-size: 0.68rem;
+    letter-spacing: 0.1em; cursor: pointer; transition: all 0.2s;
+  }
+  .ai-badge:hover { background: rgba(93,173,226,0.2); }
+
+  /* winner */
+  #win-overlay {
+    display: none; position: absolute; inset: 0;
+    background: rgba(0,0,0,0.78); border-radius: var(--radius);
+    flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    backdrop-filter: blur(5px); z-index: 10;
+  }
+  #win-overlay.show { display: flex; }
+  #win-text { font-size: 1.9rem; font-weight: 900; letter-spacing: 0.15em; text-shadow: 0 0 25px currentColor; }
+
+  .thinking { animation: pls 1s ease-in-out infinite; }
+  @keyframes pls { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* 車輪棋規則彈窗 */
+  .rules-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .rules-modal.visible {
+    display: flex;
+  }
+  .rules-box {
+    background: var(--panel);
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    max-width: 480px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 0 60px rgba(201,168,76,0.3);
+  }
+  .rules-header {
+    background: #1a1510;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--gold);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+  }
+  .rules-header h2 {
+    color: var(--gold);
+    font-size: 1.3rem;
+    letter-spacing: 0.1em;
+    margin: 0;
+    font-family: 'Courier Prime', monospace;
+  }
+  .rules-close {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .rules-close:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .rules-content {
+    padding: 20px 24px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .rules-content h3 {
+    color: var(--gold);
+    font-size: 1rem;
+    margin: 16px 0 8px 0;
+    border-left: 3px solid var(--gold);
+    padding-left: 10px;
+  }
+  .rules-content h3:first-of-type {
+    margin-top: 0;
+  }
+  .rules-content ul {
+    margin: 6px 0 12px 20px;
+  }
+  .rules-content li {
+    margin: 6px 0;
+    color: var(--muted);
+  }
+  .rules-content .highlight {
+    color: var(--gold);
+  }
+  .rules-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 14px 0;
+  }
+  .rules-footer {
+    background: #1a1510;
+    padding: 12px 20px;
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    font-family: 'Courier Prime', monospace;
+  }
+</style>
+</head>
+<body>
+
+<h1>車輪棋</h1>
+<p class="subtitle">WHEEL CHESS · 策略對弈</p>
+
+<div class="modes" id="mode-tabs">
+  <button class="mode-btn active" onclick="setMode('pvp')">雙人對戰</button>
+  <button class="mode-btn" onclick="setMode('ai')">AI 對戰</button>
+  <button class="mode-btn" onclick="setMode('edit')">編輯局面</button>
+  <button class="mode-btn" onclick="setMode('analysis')">AI 分析</button>
+</div>
+
+<div class="edit-bar" id="edit-bar">
+  <button class="eb ap1 active" id="eb-p1" onclick="setEditPen('p1')">放 ● 金方</button>
+  <button class="eb ap2" id="eb-p2" onclick="setEditPen('p2')">放 ● 藍方</button>
+  <button class="eb clr" id="eb-clr" onclick="setEditPen('clr')">清除格</button>
+  <button class="eb" id="eb-t0" onclick="editSetTurn(0)">金方先手</button>
+  <button class="eb" id="eb-t1" onclick="editSetTurn(1)">藍方先手</button>
+  <button class="eb go" onclick="editConfirm()">確認開始 ▶</button>
+</div>
+
+<div class="main">
+  <div class="board-wrap">
+    <svg id="board-svg" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="win-overlay">
+      <div id="win-text">金方獲勝！</div>
+      <button class="btn" style="min-width:120px;font-size:0.9rem" onclick="newGame()">再來一局</button>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h3>對局資訊</h3>
+      <div class="turn-row">
+        <div class="tdot p1" id="tdot"></div>
+        <span id="tlabel">金方行動</span>
+      </div>
+      <div class="phase-tag place" id="ptag">布子階段</div>
+      <div class="ai-row" id="ai-row" style="display:none">
+        AI 執 <span class="ai-badge" id="ai-badge" title="點擊切換 AI 執哪方">藍方</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>棋子數量</h3>
+      <div class="srow">
+        <div class="slabel"><div class="spip" style="background:var(--p1c)"></div>金方</div>
+        <div class="sval p1" id="p1cnt">0 / 3</div>
+      </div>
+      <div class="srow">
+        <div class="slabel"><div class="spip" style="background:var(--p2c)"></div>藍方</div>
+        <div class="sval p2" id="p2cnt">0 / 3</div>
+      </div>
+    </div>
+
+    <div id="analysis-box">
+      <div class="alab">AI 分析結果</div>
+      <div id="acontent">—</div>
+    </div>
+
+    <div class="card" style="padding:10px 12px">
+      <h3>操作</h3>
+      <div class="btn-row">
+        <button class="btn" onclick="undo()">悔棋</button>
+        <button class="btn danger" onclick="newGame()">重新開始</button>
+        <button class="btn" onclick="openRulesModal()">📖 規則</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:10px 12px">
+      <h3>棋譜</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 車輪棋規則彈窗 -->
+<div class="rules-modal" id="rulesModal">
+  <div class="rules-box">
+    <div class="rules-header">
+      <h2>⚙️ 車輪棋 · 遊戲規則</h2>
+      <button class="rules-close" onclick="closeRulesModal()">✕</button>
+    </div>
+    <div class="rules-content">
+      <h3>🎲 棋盤</h3>
+      <ul>
+        <li>共 <span class="highlight">9 個棋位</span>（中心 + 8 個外環位置）</li>
+        <li>棋位之間有線相連，形成<span class="highlight">車輪狀</span>結構</li>
+        <li>中心與所有外環相連，外環呈環形相鄰</li>
+      </ul>
+
+      <h3>⚫ 遊戲流程</h3>
+      <ul>
+        <li><span class="highlight">① 布子階段</span>：黑白（金/藍）輪流放子，各放 <strong>3 子</strong>（金方先放）</li>
+        <li><span class="highlight">② 走子階段</span>：布子結束後，輪流沿線移動 <strong>1 步</strong>到相鄰空位</li>
+        <li>❌ 沒有吃子機制</li>
+      </ul>
+
+      <h3>🏆 勝利條件</h3>
+      <ul>
+        <li>在棋盤上形成 <span class="highlight">「直線三連」</span>（三點一線）即獲勝</li>
+        <li>獲勝線型包含：
+          <ul>
+            <li>中心 + 外環相對兩點（如：1-0-5）</li>
+            <li>外環相鄰三點（如：7-8-1）</li>
+          </ul>
+        </li>
+        <li>若對手<span class="highlight">無路可走</span> → 獲勝</li>
+      </ul>
+
+      <h3>🖱️ 操作方式</h3>
+      <ul>
+        <li><strong>布子</strong>：點擊空位放置棋子</li>
+        <li><strong>走子</strong>：點擊己方棋子（高亮）→ 再點擊相鄰空位</li>
+        <li><strong>編輯模式</strong>：可自訂棋盤局面</li>
+        <li><strong>AI 分析</strong>：顯示最佳走法建議</li>
+        <li><strong>悔棋</strong>：可退回上一步（AI 模式退兩步）</li>
+      </ul>
+
+      <div class="rules-divider"></div>
+      <div style="text-align:center; font-size:0.75rem;">
+        ⚔️ 三子成線 · 車輪之弈 ⚔️
+      </div>
+    </div>
+    <div class="rules-footer">
+      車輪棋 WHEEL CHESS · 連線策略遊戲
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// GAME CONSTANTS
+// ============================================================
+const WIN_LINES = [[1,0,5],[3,0,7],[2,0,6],[4,0,8]];
+const ADJ = Array.from({length:9}, ()=>[]);
+function buildAdj() {
+  for (let i=1;i<=8;i++) ADJ[0].push(i);
+  for (let i=1;i<=8;i++) {
+    ADJ[i].push(0);
+    ADJ[i].push(i===1?8:i-1);
+    ADJ[i].push(i===8?1:i+1);
+  }
+}
+buildAdj();
+
+const CX=160,CY=160,ROUT=118;
+const POS=[{x:CX,y:CY}];
+for(let i=1;i<=8;i++){
+  const a=(i-1)*Math.PI/4-Math.PI/2;
+  POS.push({x:CX+ROUT*Math.cos(a),y:CY+ROUT*Math.sin(a)});
+}
+
+// ============================================================
+// BIN TABLE
+// ============================================================
+let records=null, binOK=false;
+
+async function loadBin(){
+  try{
+    addLog('載入 chelunqi.bin…','sys');
+    const r=await fetch('chelunqi.bin');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const buf=await r.arrayBuffer();
+    const dv=new DataView(buf);
+    const magic=String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3));
+    if(magic!=='WCHS') throw new Error('magic error: '+magic);
+    const cnt=dv.getUint32(5,true);
+    const rsz=dv.getUint8(9);
+    if(rsz!==8) throw new Error('record size!=8');
+    records=new Array(cnt);
+    let off=16;
+    for(let i=0;i<cnt;i++){
+      records[i]={
+        key:       dv.getUint32(off,  true),
+        score:     dv.getInt8 (off+4),
+        best_move: dv.getUint8(off+5),
+        move_count:dv.getUint8(off+6),
+        flags:     dv.getUint8(off+7),
+      };
+      off+=8;
+    }
+    binOK=true;
+    addLog(`已載入 ${cnt} 筆 ✓`,'sys');
+  }catch(e){
+    addLog('⚠ bin 載入失敗: '+e.message,'err');
+    addLog('AI 功能停用','sys');
+  }
+}
+
+function queryBin(s){
+  if(!binOK||!records) return null;
+  const key=encKey(s);
+  let lo=0,hi=records.length-1;
+  while(lo<=hi){
+    const mid=(lo+hi)>>1;
+    if(records[mid].key===key) return records[mid];
+    if(records[mid].key<key) lo=mid+1; else hi=mid-1;
+  }
+  return null;
+}
+
+function encKey(s){
+  return (s.p1&0x1FF)|((s.p2&0x1FF)<<9)|((s.p1pl&3)<<18)|((s.p2pl&3)<<20)|((s.turn&1)<<22);
+}
+
+// 規則彈窗控制
+function openRulesModal() {
+  document.getElementById('rulesModal').classList.add('visible');
+}
+function closeRulesModal() {
+  document.getElementById('rulesModal').classList.remove('visible');
+}
+// 點擊遮罩也可以關閉
+document.getElementById('rulesModal')?.addEventListener('click', function(e) {
+  if (e.target === this) closeRulesModal();
+});
+
+// ============================================================
+// GAME LOGIC
+// ============================================================
+function checkWin(mask){
+  for(const l of WIN_LINES)
+    if((mask>>l[0]&1)&&(mask>>l[1]&1)&&(mask>>l[2]&1)) return true;
+  return false;
+}
+function getWinLine(mask){
+  for(const l of WIN_LINES)
+    if((mask>>l[0]&1)&&(mask>>l[1]&1)&&(mask>>l[2]&1)) return l;
+  return null;
+}
+function isPlace(s){ return s.p1pl+s.p2pl<6; }
+function legalMoves(s){
+  const cm=s.turn===0?s.p1:s.p2;
+  const moves=[];
+  if(isPlace(s)){
+    const occ=s.p1|s.p2;
+    for(let p=0;p<9;p++) if(!(occ>>p&1)) moves.push(p);
+  } else {
+    const occ=s.p1|s.p2;
+    for(let f=0;f<9;f++){
+      if(!(cm>>f&1)) continue;
+      for(const t of ADJ[f]) if(!(occ>>t&1)) moves.push(f*9+t);
+    }
+  }
+  return moves;
+}
+function applyMove(s,mv){
+  let{p1,p2,p1pl,p2pl,turn}=s;
+  if(isPlace(s)){
+    if(turn===0){p1|=(1<<mv);p1pl++;}
+    else        {p2|=(1<<mv);p2pl++;}
+  } else {
+    const f=Math.floor(mv/9),t=mv%9;
+    if(turn===0){p1&=~(1<<f);p1=p1|(1<<t);}
+    else        {p2&=~(1<<f);p2=p2|(1<<t);}
+  }
+  return{p1,p2,p1pl,p2pl,turn:1-turn};
+}
+function cloneState(s){ return{...s}; }
+function freshState(){ return{p1:0,p2:0,p1pl:0,p2pl:0,turn:0}; }
+
+// ============================================================
+// APP STATE
+// ============================================================
+let mode='pvp', aiSide=1, editPen='p1', editTurn=0;
+let gs=freshState(), hist=[], sel=-1, over=false, thinking=false;
+
+// ============================================================
+// NEW GAME
+// ============================================================
+function newGame(){
+  gs=freshState();
+  hist=[];sel=-1;over=false;thinking=false;
+  document.getElementById('win-overlay').classList.remove('show');
+  clearLog();
+  addLog('新局開始','sys');
+  renderAll();
+  if(mode==='ai'&&aiSide===0&&binOK&&!over) schedAI();
+}
+
+// ============================================================
+// UNDO
+// ============================================================
+function undo(){
+  if(!hist.length) return;
+  let steps=1;
+  if(mode==='ai'&&hist.length>=2) steps=2;
+  for(let i=0;i<steps&&hist.length;i++) hist.pop();
+  gs=hist.length?cloneState(hist[hist.length-1]):freshState();
+  sel=-1;over=false;thinking=false;
+  document.getElementById('win-overlay').classList.remove('show');
+  addLog('悔棋','sys');
+  renderAll();
+  if(mode==='analysis') runAnalysis();
+}
+
+// ============================================================
+// AI
+// ============================================================
+function schedAI(){
+  if(!binOK){addLog('AI 不可用','err');return;}
+  thinking=true; renderTurn();
+  setTimeout(doAI,280);
+}
+function doAI(){
+  if(over){thinking=false;return;}
+  const rec=queryBin(gs);
+  thinking=false;
+  if(!rec){
+    addLog('查表失敗，隨機走','err');
+    const mvs=legalMoves(gs);
+    if(mvs.length) execMove(mvs[Math.floor(Math.random()*mvs.length)]);
+    return;
+  }
+  execMove(rec.best_move);
+}
+
+// ============================================================
+// EXECUTE MOVE
+// ============================================================
+function execMove(mv){
+  if(over) return;
+  const s=gs;
+  const placing=isPlace(s);
+  hist.push(cloneState(s));
+  const pname=s.turn===0?'金方':'藍方';
+  const pcls=s.turn===0?'p1':'p2';
+  if(placing) addLog(`${pname} 布子→格${mv}`,pcls);
+  else addLog(`${pname} 移動 ${Math.floor(mv/9)}→${mv%9}`,pcls);
+
+  gs=applyMove(s,mv);
+  sel=-1;
+
+  // check win (pieces belong to previous turn = s.turn)
+  const prevMask=s.turn===0?gs.p1:gs.p2;
+  if(checkWin(prevMask)){
+    over=true; renderAll(); showWinner(s.turn); return;
+  }
+  // check stuck
+  if(!isPlace(gs)&&legalMoves(gs).length===0){
+    over=true; renderAll(); showWinner(1-gs.turn); return;
+  }
+  renderAll();
+  if(mode==='analysis') runAnalysis();
+  if(mode==='ai'&&gs.turn===aiSide&&!over) schedAI();
+}
+
+function showWinner(side){
+  const nm=side===0?'金方':'藍方';
+  const el=document.getElementById('win-text');
+  el.textContent=nm+' 獲勝！';
+  el.style.color=side===0?'var(--p1c)':'var(--p2c)';
+  document.getElementById('win-overlay').classList.add('show');
+  addLog('▣ '+nm+' 獲勝！','sys');
+}
+
+// ============================================================
+// CELL CLICK
+// ============================================================
+function onCell(pos){
+  if(over||thinking) return;
+  if(mode==='edit'){handleEdit(pos);return;}
+  if(mode==='ai'&&gs.turn===aiSide) return;
+
+  const s=gs;
+  const cm=s.turn===0?s.p1:s.p2;
+
+  if(isPlace(s)){
+    const occ=s.p1|s.p2;
+    if(occ>>pos&1) return;
+    execMove(pos);
+  } else {
+    if(sel===-1){
+      if(cm>>pos&1){sel=pos;renderBoard();}
+    } else {
+      if(pos===sel){sel=-1;renderBoard();return;}
+      const occ=s.p1|s.p2;
+      if(ADJ[sel].includes(pos)&&!(occ>>pos&1)){
+        execMove(sel*9+pos);
+      } else if(cm>>pos&1){
+        sel=pos;renderBoard();
+      } else {
+        sel=-1;renderBoard();
+      }
+    }
+  }
+}
+
+// ============================================================
+// ANALYSIS
+// ============================================================
+function runAnalysis(){
+  const box=document.getElementById('analysis-box');
+  const cont=document.getElementById('acontent');
+  if(mode!=='analysis'){box.classList.remove('show');return;}
+  box.classList.add('show');
+  if(!binOK){cont.innerHTML='<span style="color:var(--red)">未載入 bin 檔</span>';renderBoard();return;}
+  if(over){cont.textContent='對局已結束';renderBoard();return;}
+  const rec=queryBin(gs);
+  if(!rec){cont.innerHTML='<span style="color:var(--muted)">查無此局面</span>';renderBoard();return;}
+  const sm={1:['優勢','win'],0:['均勢','draw'],'-1':['劣勢','lose']};
+  const[word,cls]=sm[rec.score]||['未知','draw'];
+  const placing=rec.flags&1;
+  let mstr='';
+  if(rec.best_move!==255){
+    if(placing) mstr=`最佳布子：格 <b>${rec.best_move}</b>`;
+    else mstr=`最佳走法：<b>${Math.floor(rec.best_move/9)}</b>→<b>${rec.best_move%9}</b>`;
+  }
+  const pname=gs.turn===0?'金方':'藍方';
+  cont.innerHTML=`${pname}：<span class="sw ${cls}">${word}</span><br>${mstr?mstr+'<br>':''}合法走法：${rec.move_count} 種`;
+  renderBoard(rec);
+}
+
+// ============================================================
+// EDIT MODE
+// ============================================================
+function setEditPen(pen){
+  editPen=pen;
+  ['p1','p2','clr'].forEach(p=>document.getElementById('eb-'+p).classList.toggle('active',p===pen));
+}
+function editSetTurn(t){
+  editTurn=t;
+  document.getElementById('eb-t0').classList.toggle('active',t===0);
+  document.getElementById('eb-t1').classList.toggle('active',t===1);
+}
+function handleEdit(pos){
+  if(editPen==='p1'){
+    if(gs.p2>>pos&1) return;
+    if(gs.p1>>pos&1){gs.p1&=~(1<<pos);gs.p1pl=Math.max(0,gs.p1pl-1);}
+    else if(gs.p1pl<3){gs.p1|=(1<<pos);gs.p1pl++;}
+  } else if(editPen==='p2'){
+    if(gs.p1>>pos&1) return;
+    if(gs.p2>>pos&1){gs.p2&=~(1<<pos);gs.p2pl=Math.max(0,gs.p2pl-1);}
+    else if(gs.p2pl<3){gs.p2|=(1<<pos);gs.p2pl++;}
+  } else {
+    if(gs.p1>>pos&1){gs.p1&=~(1<<pos);gs.p1pl=Math.max(0,gs.p1pl-1);}
+    if(gs.p2>>pos&1){gs.p2&=~(1<<pos);gs.p2pl=Math.max(0,gs.p2pl-1);}
+  }
+  gs.turn=editTurn;
+  renderAll();
+}
+function editConfirm(){
+  if(gs.p1pl+gs.p2pl<6){addLog('需放滿 6 顆棋子','err');return;}
+  setModeInternal('pvp');
+  over=false;hist=[];
+  addLog('從編輯局面開始','sys');
+  renderAll();
+}
+
+// ============================================================
+// MODE
+// ============================================================
+function setMode(m){
+  setModeInternal(m);
+  newGame();
+  if(m==='analysis') runAnalysis();
+}
+function setModeInternal(m){
+  mode=m;
+  const keys=['pvp','ai','edit','analysis'];
+  document.querySelectorAll('.mode-btn').forEach((b,i)=>b.classList.toggle('active',keys[i]===m));
+  document.getElementById('edit-bar').classList.toggle('show',m==='edit');
+  document.getElementById('ai-row').style.display=m==='ai'?'flex':'none';
+  if(m!=='analysis') document.getElementById('analysis-box').classList.remove('show');
+}
+
+document.getElementById('ai-badge').addEventListener('click',()=>{
+  if(mode!=='ai') return;
+  aiSide=1-aiSide;
+  document.getElementById('ai-badge').textContent=aiSide===0?'金方':'藍方';
+  newGame();
+});
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderAll(rec){
+  renderBoard(rec);
+  renderTurn();
+  renderCounts();
+}
+function renderTurn(){
+  const dot=document.getElementById('tdot');
+  const lbl=document.getElementById('tlabel');
+  const tag=document.getElementById('ptag');
+  if(over){lbl.textContent='對局結束';return;}
+  dot.className='tdot '+(gs.turn===0?'p1':'p2');
+  const pn=gs.turn===0?'金方':'藍方';
+  lbl.innerHTML=thinking?`<span class="thinking">AI 思考中…</span>`:(pn+' 行動');
+  tag.textContent=isPlace(gs)?'布子階段':'走子階段';
+  tag.className='phase-tag '+(isPlace(gs)?'place':'move');
+}
+function renderCounts(){
+  document.getElementById('p1cnt').textContent=gs.p1pl+' / 3';
+  document.getElementById('p2cnt').textContent=gs.p2pl+' / 3';
+}
+
+function renderBoard(rec){
+  const svg=document.getElementById('board-svg');
+  const s=gs;
+  const occ=s.p1|s.p2;
+  const cm=s.turn===0?s.p1:s.p2;
+  const placing=isPlace(s);
+  const wl1=checkWin(s.p1)?getWinLine(s.p1):null;
+  const wl2=checkWin(s.p2)?getWinLine(s.p2):null;
+  const winLine=wl1||wl2;
+
+  let targets=new Set();
+  if(!placing&&sel>=0){
+    for(const t of ADJ[sel]) if(!(occ>>t&1)) targets.add(t);
+  }
+
+  let hintFrom=-1,hintTo=-1;
+  if(rec&&rec.best_move!==255){
+    if(rec.flags&1) hintTo=rec.best_move;
+    else{hintFrom=Math.floor(rec.best_move/9);hintTo=rec.best_move%9;}
+  }
+
+  let h='';
+  h+=`<defs>
+    <radialGradient id="rg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#221c0f"/>
+      <stop offset="100%" stop-color="#100d06"/>
+    </radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow2"><feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>`;
+
+  h+=`<circle cx="160" cy="160" r="155" fill="url(#rg)" stroke="#2a2010" stroke-width="1.5"/>`;
+
+  // spokes
+  for(let i=1;i<=8;i++){
+    const p=POS[i];
+    const hi=winLine&&winLine.includes(0)&&winLine.includes(i);
+    h+=`<line x1="${CX}" y1="${CY}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}"
+      stroke="${hi?'#c9a84c':'#352a14'}" stroke-width="${hi?2.8:1.5}" opacity="${hi?1:0.7}"/>`;
+  }
+  // outer ring
+  for(let i=1;i<=8;i++){
+    const a=POS[i],b=POS[i===8?1:i+1];
+    const ni=i===8?1:i+1;
+    const hi=winLine&&winLine.includes(i)&&winLine.includes(ni);
+    h+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"
+      stroke="${hi?'#c9a84c':'#251e0c'}" stroke-width="${hi?2.5:1.2}" opacity="${hi?1:0.6}"/>`;
+  }
+
+  // analysis arrow (move phase)
+  if(hintFrom>=0&&hintTo>=0){
+    const pf=POS[hintFrom],pt=POS[hintTo];
+    const dx=pt.x-pf.x,dy=pt.y-pf.y;
+    const ang=(Math.atan2(dy,dx)*180/Math.PI+90).toFixed(1);
+    h+=`<line x1="${pf.x.toFixed(1)}" y1="${pf.y.toFixed(1)}" x2="${pt.x.toFixed(1)}" y2="${pt.y.toFixed(1)}"
+      stroke="#c9a84c" stroke-width="2.5" stroke-dasharray="6,4" opacity="0.55"/>`;
+    h+=`<polygon points="0,-7 5,7 -5,7" fill="#c9a84c" opacity="0.75"
+      transform="translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) rotate(${ang})"/>`;
+  }
+
+  // cells
+  for(let pos=0;pos<9;pos++){
+    const{x,y}=POS[pos];
+    const r=pos===0?22:18;
+    const hp1=s.p1>>pos&1,hp2=s.p2>>pos&1;
+    const isSel=sel===pos;
+    const isTgt=targets.has(pos);
+    const isHintPl=(hintFrom===-1&&hintTo===pos&&!hp1&&!hp2);
+    const isWin=winLine&&winLine.includes(pos);
+
+    let fill='#1c1508';
+    if(isSel) fill='rgba(201,168,76,0.18)';
+    else if(isTgt) fill='rgba(93,173,226,0.1)';
+    else if(isHintPl) fill='rgba(201,168,76,0.12)';
+
+    let stroke='#352a14',sw=1.3;
+    if(isSel){stroke='#c9a84c';sw=2.5;}
+    else if(isTgt){stroke='#5dade2';sw=2;}
+    else if(isWin){stroke='#c9a84c';sw=2.5;}
+    else if(isHintPl){stroke='#c9a84c';sw=1.8;}
+
+    const filt=isWin?'filter="url(#glow)"':'';
+
+    h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${fill}"
+      stroke="${stroke}" stroke-width="${sw}" ${filt}
+      style="cursor:pointer" onclick="onCell(${pos})"/>`;
+
+    // number label
+    if(!hp1&&!hp2){
+      h+=`<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="middle"
+        font-size="11" fill="#5a4a2a" font-family="Courier Prime,monospace"
+        pointer-events="none">${pos}</text>`;
+    }
+
+    // piece
+    if(hp1||hp2){
+      const pc=hp1?'var(--p1c)':'var(--p2c)';
+      const inner=hp1?'#7a5a18':'#185a8a';
+      const pr=pos===0?15:11;
+      const gf=isWin?'filter="url(#glow2)"':'';
+      h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${pr}" fill="${inner}"
+        stroke="${pc}" stroke-width="${isWin?3:2.2}" pointer-events="none" ${gf}/>`;
+      h+=`<circle cx="${x.toFixed(1)}" cy="${(y-pr*0.3).toFixed(1)}" r="${(pr*0.38).toFixed(1)}"
+        fill="rgba(255,255,255,0.15)" pointer-events="none"/>`;
+    }
+
+    // target dot
+    if(isTgt&&!hp1&&!hp2){
+      h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="rgba(93,173,226,0.45)"
+        pointer-events="none"/>`;
+    }
+    // hint place ring
+    if(isHintPl){
+      h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r-4}" fill="none"
+        stroke="#c9a84c" stroke-width="2" stroke-dasharray="5,3" pointer-events="none" opacity="0.7"/>`;
+    }
+  }
+
+  svg.innerHTML=h;
+}
+
+// ============================================================
+// LOG
+// ============================================================
+function addLog(msg,cls){
+  const d=document.getElementById('log');
+  const el=document.createElement('span');
+  el.className='le '+(cls||'');
+  el.textContent=msg;
+  d.appendChild(el);
+  d.appendChild(document.createTextNode('\n'));
+  d.scrollTop=d.scrollHeight;
+}
+function clearLog(){ document.getElementById('log').innerHTML=''; }
+
+// ============================================================
+// INIT
+// ============================================================
+setModeInternal('pvp');
+newGame();
+loadBin().then(()=>{
+  if(mode==='analysis'&&binOK) runAnalysis();
+  if(mode==='ai'&&binOK&&gs.turn===aiSide) schedAI();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五棍棋</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Noto+Sans+TC:wght@300;400;500&display=swap');
+
+  :root {
+    --board-bg: #c8a96e;
+    --board-line: #7a5c2e;
+    --board-shadow: #5a3e1b;
+    --p1-color: #f0f0e8;
+    --p1-border: #aaa;
+    --p2-color: #1a1a1a;
+    --p2-border: #555;
+    --accent: #c0392b;
+    --accent2: #2980b9;
+    --bg: #1c1c1c;
+    --panel-bg: #252525;
+    --panel-border: #3a3a3a;
+    --text: #e8e0d0;
+    --text-dim: #888;
+    --highlight: rgba(255,220,50,0.55);
+    --valid-dot: rgba(80,200,80,0.7);
+    --danger: #e74c3c;
+    --safe: #27ae60;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans TC', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    padding: 14px 24px;
+    background: #161616;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header h1 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    color: var(--board-bg);
+  }
+  header .subtitle {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  .main-layout {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    width: 100%;
+    max-width: 960px;
+    align-items: flex-start;
+  }
+
+  /* ── 側欄 ── */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .panel-title {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    color: var(--board-bg);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .player-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    margin-bottom: 4px;
+  }
+  .player-row.active {
+    background: rgba(192,140,80,0.18);
+    outline: 1px solid rgba(192,140,80,0.4);
+  }
+  .piece-icon {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+  }
+  .piece-icon.p1 { background: var(--p1-color); border-color: var(--p1-border); color: #333; }
+  .piece-icon.p2 { background: var(--p2-color); border-color: var(--p2-border); color: #eee; }
+  .player-info { flex: 1; }
+  .player-name { font-size: 0.78rem; font-weight: 500; }
+  .player-counts { font-size: 0.7rem; color: var(--text-dim); }
+  .turn-arrow { font-size: 1rem; color: var(--board-bg); }
+
+  .phase-badge {
+    text-align: center;
+    padding: 6px 0;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .phase-place { background: rgba(41,128,185,0.25); color: #74b9ff; }
+  .phase-force { background: rgba(231,76,60,0.25); color: #ff7675; }
+  .phase-move  { background: rgba(39,174,96,0.25); color: #55efc4; }
+
+  .msg-box {
+    font-size: 0.78rem;
+    color: var(--text);
+    min-height: 36px;
+    line-height: 1.5;
+    padding: 4px 0;
+  }
+
+  .btn-group { display: flex; flex-direction: column; gap: 6px; }
+  .btn {
+    padding: 7px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    background: #2e2e2e;
+    color: var(--text);
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .btn:hover { background: #3a3a3a; border-color: var(--board-bg); }
+  .btn.active { background: rgba(192,140,80,0.25); border-color: var(--board-bg); color: var(--board-bg); }
+  .btn.danger { border-color: #7f2222; }
+  .btn.danger:hover { background: rgba(231,76,60,0.2); border-color: var(--danger); color: var(--danger); }
+  .btn.primary { background: rgba(192,140,80,0.2); border-color: var(--board-bg); color: var(--board-bg); }
+  .btn.primary:hover { background: rgba(192,140,80,0.35); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .mode-select {
+    display: flex;
+    gap: 4px;
+  }
+  .mode-select .btn { flex: 1; padding: 5px 4px; font-size: 0.72rem; }
+
+  /* ── 棋盤區 ── */
+  .board-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  canvas {
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  /* ── 分析區 ── */
+  .analysis-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+    width: 100%;
+    max-width: 500px;
+    display: none;
+  }
+  .analysis-panel.visible { display: block; }
+  .analysis-item {
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border-radius: 5px;
+    background: #2e2e2e;
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .analysis-rank {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--board-bg);
+    color: #1a1a1a;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .analysis-score {
+    margin-left: auto;
+    color: var(--board-bg);
+    font-weight: 500;
+    font-size: 0.75rem;
+  }
+
+  /* ── 成項說明 ── */
+  .pattern-legend {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+  .pattern-legend span { color: var(--board-bg); font-weight: 500; }
+
+  /* ── 勝利彈窗 ── */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    display: none;
+  }
+  .overlay.visible { display: flex; }
+  .win-dialog {
+    background: var(--panel-bg);
+    border: 1px solid var(--board-bg);
+    border-radius: 12px;
+    padding: 32px 40px;
+    text-align: center;
+  }
+  .win-dialog h2 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 2rem;
+    color: var(--board-bg);
+    margin-bottom: 8px;
+  }
+  .win-dialog p { color: var(--text-dim); margin-bottom: 20px; font-size: 0.88rem; }
+
+  /* ── 編輯模式工具列 ── */
+  .edit-toolbar {
+    display: none;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .edit-toolbar.visible { display: flex; }
+  .edit-tool {
+    padding: 5px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    background: #2e2e2e;
+    color: var(--text);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .edit-tool.active { background: rgba(192,140,80,0.3); border-color: var(--board-bg); color: var(--board-bg); }
+
+  select {
+    background: #2e2e2e;
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    padding: 4px 6px;
+    font-size: 0.75rem;
+    font-family: 'Noto Sans TC', sans-serif;
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid var(--board-bg);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 游戏说明弹窗 */
+  .rules-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .rules-overlay.show { display: flex; }
+  .rules-box {
+    background: var(--panel-bg);
+    border: 2px solid var(--board-bg);
+    border-radius: 18px;
+    padding: 24px 28px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.8);
+    animation: fadeIn 0.3s ease;
+  }
+  .rules-box h2 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 1.6rem;
+    text-align: center;
+    color: var(--board-bg);
+    margin-bottom: 8px;
+  }
+  .rules-box h3 {
+    color: var(--board-bg);
+    font-size: 0.9rem;
+    margin: 18px 0 8px 0;
+    border-left: 3px solid var(--board-bg);
+    padding-left: 12px;
+  }
+  .rules-box p, .rules-box li {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    line-height: 1.65;
+  }
+  .rules-box ul {
+    padding-left: 20px;
+    margin: 8px 0;
+  }
+  .rules-close {
+    display: block;
+    margin: 24px auto 0;
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #3a3a3a, #2a2a2a);
+    border: 1px solid var(--board-bg);
+    color: var(--board-bg);
+    border-radius: 6px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: fit-content;
+  }
+  .rules-close:hover { background: linear-gradient(135deg, #5a4a3a, #3a2a1a); }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>五棍棋</h1>
+  <div class="subtitle">Wugun Chess · 5×5 策略棋</div>
+</header>
+
+<div class="main-layout">
+  <!-- 左側欄 -->
+  <div class="sidebar">
+    <!-- 玩家狀態 -->
+    <div class="panel">
+      <div class="panel-title">棋局狀態</div>
+      <div id="phaseDisplay" class="phase-badge phase-place">放子階段</div>
+      <div id="playerP1" class="player-row active">
+        <div class="piece-icon p1">○</div>
+        <div class="player-info">
+          <div class="player-name" id="p1Name">先手（P1）</div>
+          <div class="player-counts" id="p1Counts">手:13 盤:0</div>
+        </div>
+        <div class="turn-arrow" id="p1Arrow">◀</div>
+      </div>
+      <div id="playerP2" class="player-row">
+        <div class="piece-icon p2">●</div>
+        <div class="player-info">
+          <div class="player-name" id="p2Name">後手（P2）</div>
+          <div class="player-counts" id="p2Counts">手:12 盤:0</div>
+        </div>
+        <div class="turn-arrow" id="p2Arrow" style="visibility:hidden">◀</div>
+      </div>
+      <div class="msg-box" id="msgBox">請先手放入棋子</div>
+    </div>
+
+    <!-- 對戰模式 -->
+    <div class="panel">
+      <div class="panel-title">對戰模式</div>
+      <div class="mode-select" style="margin-bottom:6px">
+        <button class="btn active" id="modeHvA" onclick="setMode('HvA')">人機</button>
+        <button class="btn" id="modeHvH" onclick="setMode('HvH')">雙人</button>
+      </div>
+      <div id="aiSideWrap" style="margin-bottom:6px">
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:3px">AI執</div>
+        <select id="aiSideSelect">
+          <option value="2">AI執後手（P2●）</option>
+          <option value="1">AI執先手（P1○）</option>
+        </select>
+      </div>
+      <div style="margin-bottom:6px">
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:3px">AI難度</div>
+        <select id="aiDepth">
+          <option value="2">簡單（深度2）</option>
+          <option value="3" selected>普通（深度3）</option>
+          <option value="4">困難（深度4）</option>
+        </select>
+      </div>
+      <button class="btn primary" onclick="newGame()" style="margin-top:4px">▶ 新局開始</button>
+    </div>
+
+    <!-- 操作按鈕 -->
+    <div class="panel">
+      <div class="panel-title">操作</div>
+      <div class="btn-group">
+        <button class="btn" onclick="undoMove()">↩ 悔棋</button>
+        <button class="btn" id="editBtn" onclick="toggleEdit()">✎ 編輯局面</button>
+        <button class="btn primary" onclick="analyzePosition()">🔍 AI分析</button>
+        <button class="btn danger" onclick="newGame()">⟳ 重新開始</button>
+        <button class="btn" onclick="showGameRules()" style="margin-top: 4px;">📖 遊戲說明</button>
+      </div>
+    </div>
+
+    <!-- 成項說明 -->
+    <div class="panel">
+      <div class="panel-title">成項說明</div>
+      <div class="pattern-legend">
+        <span>通天</span> 主/反對角5連<br>
+        <span>大棍</span> 橫/縱5連<br>
+        <span>四斜</span> 斜向4連<br>
+        <span>三斜</span> 斜向3連<br>
+        <span>小方</span> 2×2正方形<br>
+        <br>成項即吃對方1枚<br>對方成項中棋子受保護
+      </div>
+    </div>
+  </div>
+
+  <!-- 主棋盤區 -->
+  <div class="board-wrap">
+    <!-- 編輯工具列 -->
+    <div class="edit-toolbar" id="editToolbar">
+      <div class="edit-tool active" id="etP1" onclick="setEditTool('p1')">放○先手</div>
+      <div class="edit-tool" id="etP2" onclick="setEditTool('p2')">放●後手</div>
+      <div class="edit-tool" id="etErase" onclick="setEditTool('erase')">清除</div>
+      <div class="edit-tool" id="etTurnP1" onclick="setEditTurn(1)">輪到○</div>
+      <div class="edit-tool" id="etTurnP2" onclick="setEditTurn(2)">輪到●</div>
+      <div class="edit-tool" id="etPhasePlace" onclick="setEditPhase(0)">放子階段</div>
+      <div class="edit-tool" id="etPhaseMove" onclick="setEditPhase(2)">走子階段</div>
+      <div class="edit-tool" onclick="confirmEdit()" style="background:rgba(192,140,80,0.25);border-color:var(--board-bg);color:var(--board-bg)">✓ 確認</div>
+      <div class="edit-tool" onclick="cancelEdit()">✕ 取消</div>
+    </div>
+
+    <canvas id="boardCanvas" width="460" height="460"></canvas>
+
+    <!-- 分析結果 -->
+    <div class="analysis-panel" id="analysisPanel">
+      <div class="panel-title" style="margin-bottom:8px">🔍 AI分析結果</div>
+      <div id="analysisContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 勝利彈窗 -->
+<div class="overlay" id="winOverlay">
+  <div class="win-dialog">
+    <h2 id="winTitle">○先手勝利！</h2>
+    <p id="winSub">共 0 步</p>
+    <button class="btn primary" onclick="newGame()" style="padding:10px 24px;font-size:0.9rem">再來一局</button>
+  </div>
+</div>
+
+<!-- 游戏说明弹窗 -->
+<div id="rules-overlay" class="rules-overlay">
+  <div class="rules-box">
+    <h2>🎲 五棍棋 玩法說明</h2>
+
+    <h3>🎯 遊戲目標</h3>
+    <p>將對手的棋子減少到2枚以下即獲勝。</p>
+
+    <h3>♟️ 棋子與陣營</h3>
+    <ul>
+      <li><span style="background:#f0f0e8; display:inline-block; width:14px; height:14px; border-radius:50%; border:1px solid #aaa;"></span> <strong>先手（白○）</strong>：13枚，先放</li>
+      <li><span style="background:#1a1a1a; display:inline-block; width:14px; height:14px; border-radius:50%; border:1px solid #555;"></span> <strong>後手（黑●）</strong>：12枚，後放</li>
+    </ul>
+
+    <h3>🏃 遊戲階段</h3>
+    <ul>
+      <li><strong>放子階段</strong>：雙方輪流將棋子放到空位，先手13枚放完後，觸發一次「逼子」</li>
+      <li><strong>逼子階段</strong>：後手移除先手一枚棋子（不能移除成項中的棋子）</li>
+      <li><strong>走子階段</strong>：棋子沿直線移動一格到空格，移動後若成項則可吃對方棋子</li>
+    </ul>
+
+    <h3>🏆 成項規則（重要！）</h3>
+    <ul>
+      <li><span style="color:var(--board-bg)">通天</span>：主對角線或反對角線5連 → 吃1子</li>
+      <li><span style="color:var(--board-bg)">大棍</span>：橫線或縱線5連 → 吃1子</li>
+      <li><span style="color:var(--board-bg)">四斜</span>：斜向4連 → 吃1子</li>
+      <li><span style="color:var(--board-bg)">三斜</span>：斜向3連 → 吃1子</li>
+      <li><span style="color:var(--board-bg)">小方</span>：2×2正方形 → 吃1子</li>
+    </ul>
+    <p>※ 成項中的棋子受保護，不能被對手吃掉</p>
+
+    <h3>🤖 AI 對戰</h3>
+    <ul>
+      <li>AI 採用 <strong>Alpha-Beta 剪枝</strong> 演算法</li>
+      <li>可選擇難度：簡單(深度2)、普通(深度3)、困難(深度4)</li>
+      <li>可選擇執棋方：AI 執先手或後手</li>
+      <li>點擊「AI分析」可獲得最佳走法建議</li>
+    </ul>
+
+    <h3>✏️ 編輯模式</h3>
+    <ul>
+      <li>可自由擺放棋子，自訂開局</li>
+      <li>可設定輪到誰、當前階段</li>
+      <li>編輯完成後點「✓ 確認」即可開始對弈</li>
+    </ul>
+
+    <button class="rules-close" onclick="closeRules()">開始對弈</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  常數 & 工具
+// ═══════════════════════════════════════════════════════
+const EMPTY=0, P1=1, P2=2;
+const ROWS=5, COLS=5, N=25;
+const P1_PIECES=13, P2_PIECES=12;
+const PHASE_PLACE=0, PHASE_FORCE=1, PHASE_MOVE=2;
+
+function rc(r,c){return r*COLS+c;}
+function posRC(p){return [Math.floor(p/COLS), p%COLS];}
+
+// 相鄰（上下左右）
+const ADJACENCY = (() => {
+  const adj = Array.from({length:N},()=>[]);
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const p=rc(r,c);
+    for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+      const nr=r+dr, nc=c+dc;
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS) adj[p].push(rc(nr,nc));
+    }
+  }
+  return adj;
+})();
+
+// ═══════════════════════════════════════════════════════
+//  成項定義
+// ═══════════════════════════════════════════════════════
+function buildAllPatterns(){
+  const patterns=[];
+  const add=(t,pts)=>patterns.push([t, pts.slice().sort((a,b)=>a-b)]);
+
+  // 大棍：橫5
+  for(let r=0;r<ROWS;r++) add('大棍',[0,1,2,3,4].map(c=>rc(r,c)));
+  // 大棍：縱5
+  for(let c=0;c<COLS;c++) add('大棍',[0,1,2,3,4].map(r=>rc(r,c)));
+  // 通天：主對角
+  add('通天',[0,1,2,3,4].map(i=>rc(i,i)));
+  // 通天：反對角
+  add('通天',[0,1,2,3,4].map(i=>rc(i,4-i)));
+  // 四斜：↘長4
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+    if(r+3<ROWS&&c+3<COLS) add('四斜',[0,1,2,3].map(i=>rc(r+i,c+i)));
+  // 四斜：↗長4
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+    if(r+3<ROWS&&c-3>=0) add('四斜',[0,1,2,3].map(i=>rc(r+i,c-i)));
+  // 三斜：↘長3
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+    if(r+2<ROWS&&c+2<COLS) add('三斜',[0,1,2].map(i=>rc(r+i,c+i)));
+  // 三斜：↗長3
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+    if(r+2<ROWS&&c-2>=0) add('三斜',[0,1,2].map(i=>rc(r+i,c-i)));
+  // 小方：2×2
+  for(let r=0;r<ROWS-1;r++) for(let c=0;c<COLS-1;c++)
+    add('小方',[rc(r,c),rc(r,c+1),rc(r+1,c),rc(r+1,c+1)]);
+
+  // 去重
+  const seen=new Set();
+  return patterns.filter(([t,pts])=>{
+    const k=t+':'+pts.join(',');
+    if(seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+}
+
+const ALL_PATTERNS = buildAllPatterns();
+const POS_TO_PATTERNS = Array.from({length:N},()=>[]);
+ALL_PATTERNS.forEach(([t,pts],idx)=>pts.forEach(p=>POS_TO_PATTERNS[p].push(idx)));
+
+// 找player在board上成立的成項
+function getFormedPatterns(board, player, changedPositions=null){
+  let candidates;
+  if(changedPositions!==null){
+    const s=new Set();
+    changedPositions.forEach(p=>POS_TO_PATTERNS[p].forEach(i=>s.add(i)));
+    candidates=[...s];
+  } else {
+    candidates=ALL_PATTERNS.map((_,i)=>i);
+  }
+  const formed=[];
+  for(const idx of candidates){
+    const [t,pts]=ALL_PATTERNS[idx];
+    if(pts.every(p=>board[p]===player)) formed.push([idx,t,pts]);
+  }
+  return formed;
+}
+
+// 對方成型中受保護的位置
+function getProtectedPositions(board, opponent){
+  const prot=new Set();
+  ALL_PATTERNS.forEach(([t,pts])=>{
+    if(pts.every(p=>board[p]===opponent)) pts.forEach(p=>prot.add(p));
+  });
+  return prot;
+}
+
+// ═══════════════════════════════════════════════════════
+//  遊戲狀態
+// ═══════════════════════════════════════════════════════
+function makeState(){
+  return {
+    board: new Array(N).fill(EMPTY),
+    turn: P1,
+    phase: PHASE_PLACE,
+    p1Hand: P1_PIECES, p2Hand: P2_PIECES,
+    p1Count: 0, p2Count: 0
+  };
+}
+
+function cloneState(s){
+  return {
+    board: s.board.slice(),
+    turn: s.turn, phase: s.phase,
+    p1Hand: s.p1Hand, p2Hand: s.p2Hand,
+    p1Count: s.p1Count, p2Count: s.p2Count
+  };
+}
+
+function opponent(player){ return player===P1?P2:P1; }
+
+function isTerminal(s){
+  if(s.phase===PHASE_PLACE) return false;
+  return s.p1Count<=2 || s.p2Count<=2;
+}
+
+function winner(s){
+  if(s.p1Count<=2) return P2;
+  if(s.p2Count<=2) return P1;
+  return null;
+}
+
+function handOf(s,p){ return p===P1?s.p1Hand:s.p2Hand; }
+function countOf(s,p){ return p===P1?s.p1Count:s.p2Count; }
+
+// ─ 計算吃子 ─
+function calcCaptures(board, player, changedPos){
+  const opp=opponent(player);
+  const prot=getProtectedPositions(board, opp);
+  const formed=getFormedPatterns(board, player, changedPos);
+  if(!formed.length) return {n:0, capturable:[]};
+  const capturable=[];
+  for(let i=0;i<N;i++) if(board[i]===opp && !prot.has(i)) capturable.push(i);
+  return {n:Math.min(formed.length, capturable.length), capturable};
+}
+
+// ─ 取得所有合法動作 ─
+// action = {type, data, captures:[]}
+// place: data=pos
+// force: data=pos (逼子：後手移除先手一枚)
+// move: data={src,dst}
+function getActions(s){
+  const actions=[];
+  const {board,turn,phase}=s;
+  const opp=opponent(turn);
+
+  if(phase===PHASE_PLACE){
+    for(let pos=0;pos<N;pos++){
+      if(board[pos]!==EMPTY) continue;
+      // 模擬放子
+      const b2=board.slice(); b2[pos]=turn;
+      const {n,capturable}=calcCaptures(b2,turn,[pos]);
+      // 枚舉吃子選擇
+      if(n===0){
+        actions.push({type:'place',data:pos,captures:[]});
+      } else {
+        // 簡化：選最優的n枚（在搜索中枚舉所有組合代價太高，改為全部可吃列表，選前n枚作為代表）
+        const capsCombos = nChooseK(capturable, n);
+        capsCombos.forEach(caps=>actions.push({type:'place',data:pos,captures:caps}));
+      }
+    }
+  } else if(phase===PHASE_FORCE){
+    // 後手（P2）移除先手（P1）一枚
+    const prot=getProtectedPositions(board, P1);
+    for(let pos=0;pos<N;pos++)
+      if(board[pos]===P1 && !prot.has(pos))
+        actions.push({type:'force',data:pos,captures:[]});
+  } else { // PHASE_MOVE
+    for(let src=0;src<N;src++){
+      if(board[src]!==turn) continue;
+      for(const dst of ADJACENCY[src]){
+        if(board[dst]!==EMPTY) continue;
+        const b2=board.slice(); b2[dst]=turn; b2[src]=EMPTY;
+        const {n,capturable}=calcCaptures(b2,turn,[dst]);
+        if(n===0){
+          actions.push({type:'move',data:{src,dst},captures:[]});
+        } else {
+          const capsCombos=nChooseK(capturable,n);
+          capsCombos.forEach(caps=>actions.push({type:'move',data:{src,dst},captures:caps}));
+        }
+      }
+    }
+    // 若無走法（困死）：允許pass（不常見但安全）
+    if(actions.length===0){
+      actions.push({type:'pass',data:null,captures:[]});
+    }
+  }
+  return actions;
+}
+
+// nCk 組合，上限50個避免爆炸
+function nChooseK(arr, k){
+  if(k===0) return [[]];
+  if(k>=arr.length) return [arr.slice()];
+  const result=[];
+  function bt(start, cur){
+    if(cur.length===k){ result.push(cur.slice()); return; }
+    if(result.length>=50) return;
+    for(let i=start;i<arr.length;i++){
+      cur.push(arr[i]); bt(i+1,cur); cur.pop();
+    }
+  }
+  bt(0,[]);
+  return result;
+}
+
+// ─ 應用動作 ─
+function applyAction(s, action){
+  const ns=cloneState(s);
+  const {type,data,captures}=action;
+  const opp=opponent(ns.turn);
+
+  if(type==='place'){
+    ns.board[data]=ns.turn;
+    if(ns.turn===P1){ ns.p1Hand--; ns.p1Count++; }
+    else { ns.p2Hand--; ns.p2Count++; }
+    captures.forEach(c=>{
+      ns.board[c]=EMPTY;
+      if(c===P1||ns.board[c]===P1) ns.p1Count--;
+      else ns.p2Count--;
+    });
+    // 更精確：captures是對方棋子
+    // 重新計算count（已在上面操作board）
+    ns.p1Count=ns.board.filter(x=>x===P1).length;
+    ns.p2Count=ns.board.filter(x=>x===P2).length;
+
+    // 判斷階段推進
+    const allPlaced=(ns.p1Hand===0 && ns.p2Hand===0);
+    // 先手放完13後，後手還沒放完12時不觸發逼子
+    const p1Done=ns.p1Hand===0;
+    const p2Done=ns.p2Hand===0;
+
+    if(p1Done && !p2Done){
+      // 先手放完，觸發逼子
+      ns.phase=PHASE_FORCE;
+      ns.turn=P2;
+    } else if(allPlaced){
+      ns.phase=PHASE_MOVE;
+      ns.turn=P2; // 後手先走子（逼子後）
+    } else {
+      ns.turn=opp;
+    }
+  } else if(type==='force'){
+    ns.board[data]=EMPTY;
+    ns.p1Count=ns.board.filter(x=>x===P1).length;
+    // 逼子後進入走子，後手先走
+    ns.phase=PHASE_MOVE;
+    ns.turn=P2;
+  } else if(type==='move'){
+    const {src,dst}=data;
+    ns.board[dst]=ns.board[src];
+    ns.board[src]=EMPTY;
+    captures.forEach(c=>{ ns.board[c]=EMPTY; });
+    ns.p1Count=ns.board.filter(x=>x===P1).length;
+    ns.p2Count=ns.board.filter(x=>x===P2).length;
+    ns.turn=opp;
+  } else if(type==='pass'){
+    ns.turn=opp;
+  }
+  return ns;
+}
+
+// ═══════════════════════════════════════════════════════
+//  評估函數
+// ═══════════════════════════════════════════════════════
+// 威脅：差1個棋子即可成項
+function countThreats(board, player){
+  let cnt=0;
+  const opp=opponent(player);
+  for(const [t,pts] of ALL_PATTERNS){
+    let mine=0, oppCnt=0;
+    for(const p of pts){ if(board[p]===player) mine++; else if(board[p]===opp) oppCnt++; }
+    if(oppCnt===0 && mine===pts.length-1) cnt++;
+  }
+  return cnt;
+}
+
+function evaluate(s, forPlayer){
+  if(isTerminal(s)){
+    const w=winner(s);
+    if(w===forPlayer) return 100000;
+    if(w!==null) return -100000;
+    return 0;
+  }
+  const opp=opponent(forPlayer);
+  const myCount=countOf(s,forPlayer);
+  const oppCount=countOf(s,opp);
+  const myThreats=countThreats(s.board,forPlayer);
+  const oppThreats=countThreats(s.board,opp);
+
+  // 中心位置價值
+  const CENTER_VAL=[0,0,0,0,0, 0,1,1,1,0, 0,1,3,1,0, 0,1,1,1,0, 0,0,0,0,0];
+  let myCenterScore=0, oppCenterScore=0;
+  for(let i=0;i<N;i++){
+    if(s.board[i]===forPlayer) myCenterScore+=CENTER_VAL[i];
+    else if(s.board[i]===opp) oppCenterScore+=CENTER_VAL[i];
+  }
+
+  // 成型得分
+  const myFormed=getFormedPatterns(s.board,forPlayer);
+  const oppFormed=getFormedPatterns(s.board,opp);
+
+  // 即時吃子機會（對當前輪到的人更重要）
+  let immediateCap=0;
+  if(s.phase!==PHASE_FORCE){
+    const prot=getProtectedPositions(s.board,opp);
+    const capturable=[];
+    for(let i=0;i<N;i++) if(s.board[i]===opp&&!prot.has(i)) capturable.push(i);
+    immediateCap=Math.min(myFormed.length, capturable.length)*15;
+  }
+
+  return (myCount-oppCount)*20
+       + (myThreats-oppThreats*1.5)*8
+       + (myFormed.length-oppFormed.length)*5
+       + (myCenterScore-oppCenterScore)*2
+       + immediateCap;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Alpha-Beta 剪枝搜索
+// ═══════════════════════════════════════════════════════
+let abNodes=0;
+let abStartTime=0;
+const AB_TIME_LIMIT=2500; // ms
+
+function orderActions(actions, s){
+  // 排序：有吃子 > 無吃子；移動到中心優先
+  const CENTER_VAL=[0,0,0,0,0,0,1,1,1,0,0,1,3,1,0,0,1,1,1,0,0,0,0,0,0];
+  return actions.slice().sort((a,b)=>{
+    const aScore=(a.captures.length*10)+(a.type==='move'?CENTER_VAL[a.data.dst]||0:0);
+    const bScore=(b.captures.length*10)+(b.type==='move'?CENTER_VAL[b.data.dst]||0:0);
+    return bScore-aScore;
+  });
+}
+
+function alphaBeta(s, depth, alpha, beta, forPlayer){
+  abNodes++;
+  if(Date.now()-abStartTime>AB_TIME_LIMIT) return evaluate(s,forPlayer);
+  if(isTerminal(s)||depth===0) return evaluate(s,forPlayer);
+
+  const actions=getActions(s);
+  if(!actions.length) return evaluate(s,forPlayer);
+
+  const ordered=orderActions(actions,s);
+  const isMax=(s.turn===forPlayer);
+
+  if(isMax){
+    let best=-Infinity;
+    for(const act of ordered){
+      const ns=applyAction(s,act);
+      const v=alphaBeta(ns,depth-1,alpha,beta,forPlayer);
+      best=Math.max(best,v);
+      alpha=Math.max(alpha,best);
+      if(beta<=alpha) break;
+    }
+    return best;
+  } else {
+    let best=Infinity;
+    for(const act of ordered){
+      const ns=applyAction(s,act);
+      const v=alphaBeta(ns,depth-1,alpha,beta,forPlayer);
+      best=Math.min(best,v);
+      beta=Math.min(beta,best);
+      if(beta<=alpha) break;
+    }
+    return best;
+  }
+}
+
+function getBestMove(s, depth=3){
+  abNodes=0;
+  abStartTime=Date.now();
+  const forPlayer=s.turn;
+  const actions=getActions(s);
+  if(!actions.length) return null;
+
+  const ordered=orderActions(actions,s);
+  let bestAct=ordered[0], bestScore=-Infinity;
+  const scored=[];
+
+  for(const act of ordered){
+    const ns=applyAction(s,act);
+    const v=alphaBeta(ns,depth-1,-Infinity,Infinity,forPlayer);
+    scored.push({act,score:v});
+    if(v>bestScore){ bestScore=v; bestAct=act; }
+    if(Date.now()-abStartTime>AB_TIME_LIMIT) break;
+  }
+
+  scored.sort((a,b)=>b.score-a.score);
+  return {best:bestAct, scored, nodes:abNodes};
+}
+
+// ═══════════════════════════════════════════════════════
+//  遊戲控制器
+// ═══════════════════════════════════════════════════════
+let gameState=makeState();
+let historyStack=[];
+let gameMode='HvA'; // HvA | HvH
+let aiPlayer=P2;
+let aiDepth=3;
+let isEditing=false;
+let editTool='p1';
+let editTurn=P1;
+let editPhase=PHASE_PLACE;
+let editTempState=null;
+let stepCount=0;
+
+// 選子狀態（走子階段）
+let selectedSrc=null;
+let captureChoices=[]; // 待選吃子
+
+// 放子後待選吃子
+let pendingAction=null; // 已確認的動作，等待選吃子
+let pendingCapturable=[];
+let pendingCaptures=[];
+let pendingN=0;
+
+function newGame(){
+  gameState=makeState();
+  historyStack=[];
+  stepCount=0;
+  selectedSrc=null;
+  captureChoices=[];
+  pendingAction=null;
+  pendingCapturable=[];
+  pendingCaptures=[];
+  pendingN=0;
+  aiPlayer=parseInt(document.getElementById('aiSideSelect').value);
+  aiDepth=parseInt(document.getElementById('aiDepth').value);
+  document.getElementById('winOverlay').classList.remove('visible');
+  document.getElementById('analysisPanel').classList.remove('visible');
+  render();
+  updateInfo();
+  setMsg(gameState.phase===PHASE_PLACE?'先手請放入棋子':'');
+  // 若AI先手
+  if(gameMode==='HvA' && gameState.turn===aiPlayer){
+    setTimeout(doAIMove,300);
+  }
+}
+
+function setMode(m){
+  gameMode=m;
+  document.getElementById('modeHvA').classList.toggle('active',m==='HvA');
+  document.getElementById('modeHvH').classList.toggle('active',m==='HvH');
+  document.getElementById('aiSideWrap').style.display=m==='HvA'?'block':'none';
+}
+
+function undoMove(){
+  if(historyStack.length===0){ setMsg('已無可悔棋步'); return; }
+  // 若HvA，退兩步（退回人類操作前）
+  if(gameMode==='HvA' && historyStack.length>=2){
+    historyStack.pop();
+    gameState=historyStack.pop().state;
+  } else {
+    gameState=historyStack.pop().state;
+  }
+  selectedSrc=null;
+  pendingAction=null;
+  pendingCapturable=[];
+  pendingCaptures=[];
+  pendingN=0;
+  render(); updateInfo();
+  setMsg('已悔棋');
+}
+
+function pushHistory(){
+  historyStack.push({state:cloneState(gameState)});
+}
+
+// ─ 處理點擊 ─
+function handleClick(pos){
+  if(isEditing){ handleEditClick(pos); return; }
+  if(isTerminal(gameState)){ return; }
+  if(gameMode==='HvA' && gameState.turn===aiPlayer){ return; }
+
+  // 待選吃子模式
+  if(pendingAction!==null){
+    handleCaptureSelect(pos); return;
+  }
+
+  const {phase,turn,board}=gameState;
+
+  if(phase===PHASE_PLACE){
+    if(board[pos]!==EMPTY){ setMsg('此格已有棋子'); return; }
+    const b2=board.slice(); b2[pos]=turn;
+    const {n,capturable}=calcCaptures(b2,turn,[pos]);
+    if(n===0){
+      doAction({type:'place',data:pos,captures:[]});
+    } else {
+      // 進入選吃子模式
+      pendingAction={type:'place',data:pos,captures:[]};
+      pendingCapturable=capturable;
+      pendingCaptures=[];
+      pendingN=n;
+      // 先把棋子放上去（視覺反饋）
+      const tempState=cloneState(gameState);
+      tempState.board[pos]=turn;
+      render(tempState);
+      setMsg(`成項！請點選 ${n} 枚對方棋子吃掉（已選0/${n}）`);
+    }
+    return;
+  }
+
+  if(phase===PHASE_FORCE){
+    // 後手移除先手一枚
+    if(turn!==P2){ return; }
+    const prot=getProtectedPositions(board,P1);
+    if(board[pos]!==P1 || prot.has(pos)){ setMsg('此棋子受保護或非先手棋子'); return; }
+    doAction({type:'force',data:pos,captures:[]});
+    return;
+  }
+
+  if(phase===PHASE_MOVE){
+    if(selectedSrc===null){
+      if(board[pos]===turn){ selectedSrc=pos; render(); setMsg('請選目的地'); }
+      else setMsg('請選自己的棋子');
+    } else {
+      if(pos===selectedSrc){ selectedSrc=null; render(); setMsg('取消選擇'); return; }
+      if(board[pos]===turn){ selectedSrc=pos; render(); setMsg('重新選子，請選目的地'); return; }
+      // 嘗試移動
+      if(!ADJACENCY[selectedSrc].includes(pos)||board[pos]!==EMPTY){
+        setMsg('無效移動，只能移到相鄰空格');
+        return;
+      }
+      const b2=board.slice(); b2[pos]=turn; b2[selectedSrc]=EMPTY;
+      const {n,capturable}=calcCaptures(b2,turn,[pos]);
+      if(n===0){
+        doAction({type:'move',data:{src:selectedSrc,dst:pos},captures:[]});
+        selectedSrc=null;
+      } else {
+        pendingAction={type:'move',data:{src:selectedSrc,dst:pos},captures:[]};
+        pendingCapturable=capturable;
+        pendingCaptures=[];
+        pendingN=n;
+        selectedSrc=null;
+        const tempState=cloneState(gameState);
+        tempState.board[pos]=turn; tempState.board[tempState.board.indexOf(turn,pendingAction.data.src)]=EMPTY;
+        tempState.board[pendingAction.data.src]=EMPTY;
+        render(tempState);
+        setMsg(`成項！請點選 ${n} 枚對方棋子吃掉（已選0/${n}）`);
+      }
+    }
+  }
+}
+
+function handleCaptureSelect(pos){
+  const {board}=gameState;
+  if(!pendingCapturable.includes(pos)){
+    setMsg(`請點選對方可吃的棋子（已選${pendingCaptures.length}/${pendingN}）`);
+    return;
+  }
+  if(pendingCaptures.includes(pos)){
+    // 取消選擇
+    pendingCaptures=pendingCaptures.filter(p=>p!==pos);
+  } else {
+    pendingCaptures.push(pos);
+  }
+  if(pendingCaptures.length===pendingN){
+    // 完成選擇
+    const act={...pendingAction, captures:pendingCaptures.slice()};
+    pendingAction=null; pendingCapturable=[]; pendingCaptures=[]; pendingN=0;
+    doAction(act);
+  } else {
+    render();
+    setMsg(`請點選 ${pendingN} 枚對方棋子吃掉（已選${pendingCaptures.length}/${pendingN}）`);
+  }
+}
+
+function doAction(action){
+  pushHistory();
+  gameState=applyAction(gameState, action);
+  stepCount++;
+  selectedSrc=null;
+  render(); updateInfo();
+
+  if(isTerminal(gameState)){
+    const w=winner(gameState);
+    showWin(w);
+    return;
+  }
+
+  // AI接手
+  if(gameMode==='HvA' && gameState.turn===aiPlayer){
+    setMsg('AI思考中...');
+    setTimeout(doAIMove, 100);
+  } else {
+    const pname=gameState.turn===P1?'先手○':'後手●';
+    const phaseName=['放子','逼子','走子'][gameState.phase];
+    setMsg(`${pname}請 ${phaseName}`);
+
+    // ✨ 新增：如果是逼子阶段且轮到玩家，自动显示推荐
+    if(gameState.phase === PHASE_FORCE) {
+      setTimeout(autoSuggestForce, 50);
+    }
+  }
+}
+
+async function doAIMove(){
+  const depth=aiDepth;
+  // 用setTimeout讓UI先更新
+  await new Promise(r=>setTimeout(r,10));
+  const result=getBestMove(gameState,depth);
+  if(!result||!result.best){ setMsg('AI無動作'); return; }
+  const act=result.best;
+  setMsg(`AI走了：${describeAction(act)}（搜索${result.nodes}節點）`);
+  pushHistory();
+  gameState=applyAction(gameState,act);
+  stepCount++;
+  render(); updateInfo();
+
+  if(isTerminal(gameState)){
+    showWin(winner(gameState)); return;
+  }
+  const pname=gameState.turn===P1?'先手○':'後手●';
+  const phaseName=['放子','逼子','走子'][gameState.phase];
+  setMsg(`${pname}請 ${phaseName}`);
+}
+
+function describeAction(act){
+  if(!act) return '無';
+  const {type,data,captures}=act;
+  let s='';
+  if(type==='place'){ const [r,c]=posRC(data); s=`放(${r},${c})`; }
+  else if(type==='force'){ const [r,c]=posRC(data); s=`逼子移除(${r},${c})`; }
+  else if(type==='move'){ const [sr,sc]=posRC(data.src);const[dr,dc]=posRC(data.dst); s=`(${sr},${sc})→(${dr},${dc})`; }
+  else s='pass';
+  if(captures&&captures.length) s+=` 吃${captures.length}枚`;
+  return s;
+}
+
+function showWin(w){
+  const title=w===P1?'○先手獲勝！':w===P2?'●後手獲勝！':'平局';
+  document.getElementById('winTitle').textContent=title;
+  document.getElementById('winSub').textContent=`共 ${stepCount} 步`;
+  document.getElementById('winOverlay').classList.add('visible');
+}
+
+// ─ 分析功能 ─
+function analyzePosition(){
+  const panel=document.getElementById('analysisPanel');
+  const content=document.getElementById('analysisContent');
+  panel.classList.add('visible');
+  content.innerHTML='<div style="color:var(--text-dim);font-size:0.8rem">分析中 <span class="spinner"></span></div>';
+
+  setTimeout(()=>{
+    // 清除之前的高亮
+    window.bestMoveFrom = null;
+    window.bestMoveTo = null;
+    window.bestMoveType = null;
+
+    const depth=Math.max(aiDepth,3);
+    const result=getBestMove(gameState,depth);
+    if(!result||!result.scored.length){
+      content.innerHTML='<div style="color:var(--text-dim)">無可用走法</div>';
+      window.bestMoveFrom = null;
+      window.bestMoveTo = null;
+      window.bestMoveType = null;
+      render(); // 重绘清除高亮
+      return;
+    }
+
+    // 解析最佳走法（第一名）的起点和终点
+    const bestAct = result.scored[0].act;
+    if (bestAct) {
+      if (bestAct.type === 'move') {
+        window.bestMoveFrom = bestAct.data.src;
+        window.bestMoveTo = bestAct.data.dst;
+        window.bestMoveType = 'move';
+      } else if (bestAct.type === 'place') {
+        window.bestMoveFrom = null;
+        window.bestMoveTo = bestAct.data;
+        window.bestMoveType = 'place';
+      } else if (bestAct.type === 'force') {
+        // 逼子（拔子）：AI推荐要拔的棋子，用蓝色高亮
+        window.bestMoveFrom = null;
+        window.bestMoveTo = bestAct.data;
+        window.bestMoveType = 'force';
+      } else {
+        window.bestMoveFrom = null;
+        window.bestMoveTo = null;
+        window.bestMoveType = null;
+      }
+    } else {
+      window.bestMoveFrom = null;
+      window.bestMoveTo = null;
+      window.bestMoveType = null;
+    }
+
+    // 當前局面評估
+    const curScore=evaluate(gameState,gameState.turn);
+    const prot1=getProtectedPositions(gameState.board,P2);
+    const prot2=getProtectedPositions(gameState.board,P1);
+    const threats1=countThreats(gameState.board,P1);
+    const threats2=countThreats(gameState.board,P2);
+    const formed1=getFormedPatterns(gameState.board,P1).length;
+    const formed2=getFormedPatterns(gameState.board,P2).length;
+
+    let html=`<div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:8px;padding:6px 8px;background:#1e1e1e;border-radius:4px">
+      ○先手：棋盤${gameState.p1Count}枚 威脅${threats1}個 成型${formed1}個 |
+      ●後手：棋盤${gameState.p2Count}枚 威脅${threats2}個 成型${formed2}個
+    </div>
+    <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:6px">最佳走法建議（搜索${result.nodes}節點）：</div>`;
+
+    result.scored.slice(0,5).forEach(({act,score},i)=>{
+      const desc=describeAction(act);
+      const bar=Math.min(Math.max((score+200)/400*100,0),100);
+      const color=score>0?'var(--safe)':score<0?'var(--danger)':'var(--text-dim)';
+      // 第一名加上🌟标记
+      const star = i===0 ? '🌟 ' : '';
+      html+=`<div class="analysis-item">
+        <div class="analysis-rank">${star}${i+1}</div>
+        <div style="flex:1">
+          <div style="font-size:0.78rem">${desc}</div>
+          <div style="height:3px;background:#333;border-radius:2px;margin-top:3px">
+            <div style="height:100%;width:${bar}%;background:${color};border-radius:2px;transition:width 0.5s"></div>
+          </div>
+        </div>
+        <div class="analysis-score">${score>0?'+':''}${score}</div>
+      </div>`;
+    });
+
+    // 添加高亮提示文字
+    if (bestAct) {
+      let hintText = '';
+      if (bestAct.type === 'move') {
+        const [sr,sc]=posRC(bestAct.data.src);
+        const [dr,dc]=posRC(bestAct.data.dst);
+        hintText = `🎯 推薦走法：(${sr},${sc}) → (${dr},${dc})（起點🔵藍色，終點🟢綠色）`;
+      } else if (bestAct.type === 'place') {
+        const [r,c]=posRC(bestAct.data);
+        hintText = `🎯 推薦走法：在 (${r},${c}) 放子（🟢綠色標記）`;
+      } else if (bestAct.type === 'force') {
+        const [r,c]=posRC(bestAct.data);
+        hintText = `🎯 推薦走法：移除 (${r},${c}) 的先手棋子（🔵藍色標記）`;
+      }
+      html += `<div style="margin-top:8px;padding:6px;background:rgba(192,140,80,0.15);border-radius:4px;font-size:0.72rem;color:var(--board-bg);text-align:center">${hintText}</div>`;
+    }
+
+    content.innerHTML=html;
+
+    // 重绘以显示高亮
+    render();
+  }, 50);
+}
+
+// ═══════════════════════════════════════════════════════
+//  編輯局面
+// ═══════════════════════════════════════════════════════
+function toggleEdit(){
+  if(isEditing){ cancelEdit(); return; }
+  isEditing=true;
+  editTempState=cloneState(gameState);
+  editTool='p1'; editTurn=P1; editPhase=PHASE_PLACE;
+  document.getElementById('editToolbar').classList.add('visible');
+  document.getElementById('editBtn').classList.add('active');
+  updateEditUI();
+  render();
+  setMsg('編輯模式：點擊格子放/移除棋子');
+}
+
+function setEditTool(t){ editTool=t; updateEditUI(); }
+function setEditTurn(t){ editTurn=t; updateEditUI(); }
+function setEditPhase(p){ editPhase=p; updateEditUI(); }
+
+function updateEditUI(){
+  ['etP1','etP2','etErase'].forEach(id=>{
+    const map={etP1:'p1',etP2:'p2',etErase:'erase'};
+    document.getElementById(id).classList.toggle('active',map[id]===editTool);
+  });
+  document.getElementById('etTurnP1').classList.toggle('active',editTurn===1);
+  document.getElementById('etTurnP2').classList.toggle('active',editTurn===2);
+  document.getElementById('etPhasePlace').classList.toggle('active',editPhase===0);
+  document.getElementById('etPhaseMove').classList.toggle('active',editPhase===2);
+}
+
+function handleEditClick(pos){
+  if(!editTempState) return;
+  if(editTool==='p1') editTempState.board[pos]=P1;
+  else if(editTool==='p2') editTempState.board[pos]=P2;
+  else editTempState.board[pos]=EMPTY;
+  editTempState.p1Count=editTempState.board.filter(x=>x===P1).length;
+  editTempState.p2Count=editTempState.board.filter(x=>x===P2).length;
+  render(editTempState);
+}
+
+function confirmEdit(){
+  if(!editTempState) return;
+  editTempState.turn=editTurn;
+  editTempState.phase=editPhase;
+  editTempState.p1Count=editTempState.board.filter(x=>x===P1).length;
+  editTempState.p2Count=editTempState.board.filter(x=>x===P2).length;
+  // 簡單估算手牌
+  editTempState.p1Hand=Math.max(0, P1_PIECES-editTempState.p1Count-(editPhase>=PHASE_MOVE?0:0));
+  editTempState.p2Hand=Math.max(0, P2_PIECES-editTempState.p2Count-(editPhase>=PHASE_MOVE?0:0));
+  if(editPhase===PHASE_MOVE){ editTempState.p1Hand=0; editTempState.p2Hand=0; }
+  pushHistory();
+  gameState=editTempState;
+  cancelEdit();
+  updateInfo();
+  setMsg('局面已套用');
+}
+
+function cancelEdit(){
+  isEditing=false; editTempState=null;
+  document.getElementById('editToolbar').classList.remove('visible');
+  document.getElementById('editBtn').classList.remove('active');
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+//  繪製引擎
+// ═══════════════════════════════════════════════════════
+const canvas=document.getElementById('boardCanvas');
+const ctx=canvas.getContext('2d');
+const CW=canvas.width, CH=canvas.height;
+const MARGIN=40, CELL=(CW-MARGIN*2)/4;
+
+function cellCenter(pos){
+  const [r,c]=posRC(pos);
+  return [MARGIN+c*CELL, MARGIN+r*CELL];
+}
+
+function posFromXY(x,y){
+  const col=Math.round((x-MARGIN)/CELL);
+  const row=Math.round((y-MARGIN)/CELL);
+  if(col<0||col>=COLS||row<0||row>=ROWS) return -1;
+  return rc(row,col);
+}
+
+function render(displayState=null){
+  const s=displayState||gameState;
+  ctx.clearRect(0,0,CW,CH);
+
+  // 棋盤背景
+  const grad=ctx.createRadialGradient(CW/2,CH/2,20,CW/2,CH/2,CW*0.7);
+  grad.addColorStop(0,'#d4a96a');
+  grad.addColorStop(1,'#b8863a');
+  ctx.fillStyle=grad;
+  roundRect(ctx,10,10,CW-20,CH-20,10);
+  ctx.fill();
+
+  // 紋理感：點陣
+  ctx.fillStyle='rgba(0,0,0,0.03)';
+  for(let i=0;i<CW;i+=4) for(let j=0;j<CH;j+=4)
+    if((i+j)%8===0) ctx.fillRect(i,j,2,2);
+
+  // 格線
+  ctx.strokeStyle='#7a5c2e';
+  ctx.lineWidth=1.5;
+  for(let i=0;i<ROWS;i++){
+    const y=MARGIN+i*CELL;
+    ctx.beginPath(); ctx.moveTo(MARGIN,y); ctx.lineTo(MARGIN+(COLS-1)*CELL,y); ctx.stroke();
+  }
+  for(let j=0;j<COLS;j++){
+    const x=MARGIN+j*CELL;
+    ctx.beginPath(); ctx.moveTo(x,MARGIN); ctx.lineTo(x,MARGIN+(ROWS-1)*CELL); ctx.stroke();
+  }
+
+  // 星位點
+  ctx.fillStyle='#7a5c2e';
+  [[0,0],[0,4],[4,0],[4,4],[2,2]].forEach(([r,c])=>{
+    const [x,y]=cellCenter(rc(r,c));
+    ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
+  });
+
+  // 高亮：選中棋子
+  if(selectedSrc!==null){
+    const [x,y]=cellCenter(selectedSrc);
+    ctx.fillStyle='rgba(255,220,50,0.4)';
+    ctx.beginPath(); ctx.arc(x,y,CELL*0.48,0,Math.PI*2); ctx.fill();
+  }
+
+  // 高亮：待選吃子
+  if(pendingCapturable.length){
+    pendingCapturable.forEach(pos=>{
+      const [x,y]=cellCenter(pos);
+      ctx.fillStyle='rgba(231,76,60,0.35)';
+      ctx.beginPath(); ctx.arc(x,y,CELL*0.46,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#e74c3c'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(x,y,CELL*0.46,0,Math.PI*2); ctx.stroke();
+    });
+    pendingCaptures.forEach(pos=>{
+      const [x,y]=cellCenter(pos);
+      ctx.fillStyle='rgba(231,76,60,0.7)';
+      ctx.beginPath(); ctx.arc(x,y,CELL*0.46,0,Math.PI*2); ctx.fill();
+    });
+  }
+
+  // 合法走法提示（走子階段）
+  if(selectedSrc!==null && s.phase===PHASE_MOVE){
+    ADJACENCY[selectedSrc].forEach(dst=>{
+      if(s.board[dst]===EMPTY){
+        const [x,y]=cellCenter(dst);
+        ctx.fillStyle='rgba(80,200,80,0.7)';
+        ctx.beginPath(); ctx.arc(x,y,8,0,Math.PI*2); ctx.fill();
+      }
+    });
+  }
+
+  // ========== 逼子階段高亮（优先使用 autoSuggestForce 设置的结果） ==========
+  if(s.phase===PHASE_FORCE){
+    const prot=getProtectedPositions(s.board,P1);
+
+    // 收集所有可拔子的位置
+    const forceablePositions = [];
+    for(let i=0;i<N;i++){
+      if(s.board[i]===P1 && !prot.has(i)){
+        forceablePositions.push(i);
+      }
+    }
+
+    // ✅ 优先使用 autoSuggestForce 设置的结果
+    let suggestedPos = null;
+    if(window.bestMoveType === 'force' && window.bestMoveTo !== null && window.bestMoveTo >= 0){
+      // 检查推荐的位置是否仍然有效（没有被拔掉或变成受保护）
+      if(s.board[window.bestMoveTo] === P1 && !prot.has(window.bestMoveTo)){
+        suggestedPos = window.bestMoveTo;
+      }
+    }
+
+    // 如果没有有效的推荐结果，则动态计算
+    if(suggestedPos === null && forceablePositions.length > 0){
+      let bestScore = -Infinity;
+      for(const pos of forceablePositions){
+        const testState = cloneState(s);
+        testState.board[pos] = EMPTY;
+        testState.p1Count = testState.board.filter(x=>x===P1).length;
+        const score = evaluate(testState, P2);
+        if(score > bestScore){
+          bestScore = score;
+          suggestedPos = pos;
+        }
+      }
+    }
+
+    // 绘制高亮
+    for(let i=0;i<N;i++){
+      if(s.board[i]===P1 && !prot.has(i)){
+        const [x,y]=cellCenter(i);
+        const isSuggested = (suggestedPos === i);
+
+        if(isSuggested){
+          // AI 推荐：蓝色高亮 + 「推」字
+          ctx.beginPath();
+          ctx.arc(x, y, CELL*0.46, 0, Math.PI*2);
+          ctx.fillStyle = 'rgba(41,128,185,0.7)';
+          ctx.fill();
+          ctx.strokeStyle = '#2980b9';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(x, y, CELL*0.46, 0, Math.PI*2);
+          ctx.stroke();
+          // 添加「推」字標記
+          ctx.font = `bold ${CELL*0.22}px "Noto Sans TC"`;
+          ctx.fillStyle = '#2980b9';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('推', x, y);
+        } else {
+          // 其他可拔棋子：紅色高亮
+          ctx.fillStyle = 'rgba(231,76,60,0.3)';
+          ctx.beginPath();
+          ctx.arc(x, y, CELL*0.46, 0, Math.PI*2);
+          ctx.fill();
+          ctx.strokeStyle = '#e74c3c';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(x, y, CELL*0.46, 0, Math.PI*2);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // 成項高亮
+  const formed1=getFormedPatterns(s.board,P1);
+  const formed2=getFormedPatterns(s.board,P2);
+  drawPatternHighlight(formed1,'rgba(100,200,255,0.15)');
+  drawPatternHighlight(formed2,'rgba(255,100,100,0.15)');
+
+  // ========== AI 推薦走法高亮（移動/放子類型） ==========
+  // 移動類型：起點藍色，終點綠色
+  if(window.bestMoveType === 'move'){
+    // 起點：藍色圓圈
+    if(window.bestMoveFrom !== null && window.bestMoveFrom >= 0){
+      const [x,y]=cellCenter(window.bestMoveFrom);
+      ctx.beginPath();
+      ctx.arc(x, y, CELL*0.48, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(41,128,185,0.35)';
+      ctx.fill();
+      ctx.strokeStyle = '#2980b9';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, CELL*0.48, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, y, CELL*0.32, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(41,128,185,0.2)';
+      ctx.fill();
+    }
+    // 終點：綠色圓圈
+    if(window.bestMoveTo !== null && window.bestMoveTo >= 0){
+      const [x,y]=cellCenter(window.bestMoveTo);
+      ctx.beginPath();
+      ctx.arc(x, y, CELL*0.48, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(39,174,96,0.35)';
+      ctx.fill();
+      ctx.strokeStyle = '#27ae60';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, CELL*0.48, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, y, CELL*0.32, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(39,174,96,0.2)';
+      ctx.fill();
+    }
+    // 畫箭頭連接起點和終點
+    if(window.bestMoveFrom !== null && window.bestMoveTo !== null && window.bestMoveFrom !== window.bestMoveTo){
+      const [fx,fy]=cellCenter(window.bestMoveFrom);
+      const [tx,ty]=cellCenter(window.bestMoveTo);
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(tx, ty);
+      ctx.strokeStyle = 'rgba(200,168,75,0.7)';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const angle = Math.atan2(ty - fy, tx - fx);
+      const arrowX = tx - 12 * Math.cos(angle);
+      const arrowY = ty - 12 * Math.sin(angle);
+      ctx.beginPath();
+      ctx.moveTo(arrowX, arrowY);
+      ctx.lineTo(arrowX - 8 * Math.cos(angle - 0.4), arrowY - 8 * Math.sin(angle - 0.4));
+      ctx.lineTo(arrowX - 8 * Math.cos(angle + 0.4), arrowY - 8 * Math.sin(angle + 0.4));
+      ctx.fillStyle = 'rgba(200,168,75,0.7)';
+      ctx.fill();
+    }
+  }
+
+  // 放子類型：終點綠色
+  else if(window.bestMoveType === 'place' && window.bestMoveTo !== null && window.bestMoveTo >= 0){
+    const [x,y]=cellCenter(window.bestMoveTo);
+    ctx.beginPath();
+    ctx.arc(x, y, CELL*0.48, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(39,174,96,0.35)';
+    ctx.fill();
+    ctx.strokeStyle = '#27ae60';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, CELL*0.48, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, CELL*0.32, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(39,174,96,0.2)';
+    ctx.fill();
+  }
+
+  // 棋子
+  for(let i=0;i<N;i++){
+    if(s.board[i]===EMPTY) continue;
+    const [x,y]=cellCenter(i);
+    drawPiece(x,y,s.board[i],CELL*0.4);
+  }
+
+  // 座標標籤
+  ctx.fillStyle='rgba(90,60,20,0.7)';
+  ctx.font='11px Noto Sans TC';
+  ctx.textAlign='center';
+  for(let c=0;c<COLS;c++){
+    ctx.fillText(c, MARGIN+c*CELL, MARGIN-18);
+    ctx.fillText(c, MARGIN+c*CELL, MARGIN+(ROWS-1)*CELL+28);
+  }
+  ctx.textAlign='right';
+  for(let r=0;r<ROWS;r++){
+    ctx.fillText(r, MARGIN-12, MARGIN+r*CELL+4);
+  }
+}
+
+// 自动计算并显示逼子阶段推荐拔哪个棋子
+function autoSuggestForce() {
+  if (gameState.phase !== PHASE_FORCE) return;
+  if (gameMode === 'HvA' && gameState.turn === aiPlayer) return; // AI回合不需要提示
+
+  const prot = getProtectedPositions(gameState.board, P1);
+  const forceablePositions = [];
+  for (let i = 0; i < N; i++) {
+    if (gameState.board[i] === P1 && !prot.has(i)) {
+      forceablePositions.push(i);
+    }
+  }
+
+  if (forceablePositions.length === 0) return;
+
+  // 用启发式方法找最佳拔子位置
+  let bestPos = forceablePositions[0];
+  let bestScore = -Infinity;
+
+  for (const pos of forceablePositions) {
+    const testState = cloneState(gameState);
+    testState.board[pos] = EMPTY;
+    testState.p1Count = testState.board.filter(x => x === P1).length;
+    const score = evaluate(testState, P2);
+    if (score > bestScore) {
+      bestScore = score;
+      bestPos = pos;
+    }
+  }
+
+  // 设置全局高亮变量（render会读取这个显示蓝色）
+  window.bestMoveType = 'force';
+  window.bestMoveTo = bestPos;
+  window.bestMoveFrom = null;
+
+  // ⚠️ 删除或注释掉下面这段，不要自动显示分析面板
+  // const panel = document.getElementById('analysisPanel');
+  // const content = document.getElementById('analysisContent');
+  // panel.classList.add('visible');
+  // const [r, c] = posRC(bestPos);
+  // content.innerHTML = `...`;
+
+  render(); // 重新绘制显示高亮
+}
+
+function drawPatternHighlight(patterns, color){
+  patterns.forEach(([idx,t,pts])=>{
+    ctx.strokeStyle=color.replace('0.15','0.5');
+    ctx.lineWidth=3;
+    ctx.fillStyle=color;
+    ctx.beginPath();
+    pts.forEach((p,i)=>{
+      const [x,y]=cellCenter(p);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  });
+}
+
+// 游戏说明弹窗
+function showGameRules() {
+  document.getElementById('rules-overlay').classList.add('show');
+}
+
+function closeRules() {
+  document.getElementById('rules-overlay').classList.remove('show');
+}
+
+// 点击弹窗背景关闭
+document.getElementById('rules-overlay')?.addEventListener('click', function(e) {
+  if (e.target === this) closeRules();
+});
+
+function drawPiece(x, y, player, r){
+  const isP1=player===P1;
+  // 陰影
+  ctx.shadowColor='rgba(0,0,0,0.5)';
+  ctx.shadowBlur=6; ctx.shadowOffsetY=2;
+
+  // 底色
+  const grad=ctx.createRadialGradient(x-r*0.25,y-r*0.3,r*0.1,x,y,r);
+  if(isP1){
+    grad.addColorStop(0,'#ffffff'); grad.addColorStop(0.6,'#e0e0d8'); grad.addColorStop(1,'#c0b0a0');
+  } else {
+    grad.addColorStop(0,'#555555'); grad.addColorStop(0.6,'#1a1a1a'); grad.addColorStop(1,'#000000');
+  }
+  ctx.fillStyle=grad;
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+
+  ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+
+  // 邊框
+  ctx.strokeStyle=isP1?'rgba(150,130,100,0.6)':'rgba(100,100,100,0.5)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke();
+
+  // 光澤
+  const shine=ctx.createRadialGradient(x-r*0.3,y-r*0.35,r*0.05,x-r*0.2,y-r*0.2,r*0.5);
+  shine.addColorStop(0,isP1?'rgba(255,255,255,0.7)':'rgba(255,255,255,0.25)');
+  shine.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=shine;
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+// ─ 更新資訊面板 ─
+function updateInfo(){
+  const s=gameState;
+  document.getElementById('p1Counts').textContent=`手:${s.p1Hand} 盤:${s.p1Count}`;
+  document.getElementById('p2Counts').textContent=`手:${s.p2Hand} 盤:${s.p2Count}`;
+  document.getElementById('playerP1').classList.toggle('active',s.turn===P1);
+  document.getElementById('playerP2').classList.toggle('active',s.turn===P2);
+  document.getElementById('p1Arrow').style.visibility=s.turn===P1?'visible':'hidden';
+  document.getElementById('p2Arrow').style.visibility=s.turn===P2?'visible':'hidden';
+
+  const pnames=['放子階段','逼子階段','走子階段'];
+  const pclasses=['phase-place','phase-force','phase-move'];
+  const pd=document.getElementById('phaseDisplay');
+  pd.textContent=pnames[s.phase];
+  pd.className='phase-badge '+pclasses[s.phase];
+
+  // 更新玩家名稱（HvA模式）
+  if(gameMode==='HvA'){
+    document.getElementById('p1Name').textContent=aiPlayer===P1?'AI（先手○）':'玩家（先手○）';
+    document.getElementById('p2Name').textContent=aiPlayer===P2?'AI（後手●）':'玩家（後手●）';
+  } else {
+    document.getElementById('p1Name').textContent='先手（P1 ○）';
+    document.getElementById('p2Name').textContent='後手（P2 ●）';
+  }
+}
+
+function setMsg(text){
+  document.getElementById('msgBox').textContent=text;
+}
+
+// ─ Canvas 點擊 ─
+canvas.addEventListener('click', e=>{
+  const rect=canvas.getBoundingClientRect();
+  const scaleX=CW/rect.width, scaleY=CH/rect.height;
+  const x=(e.clientX-rect.left)*scaleX;
+  const y=(e.clientY-rect.top)*scaleY;
+  const pos=posFromXY(x,y);
+  if(pos>=0) handleClick(pos);
+});
+
+// ─ 初始化 ─
+setMode('HvA');
+newGame();
+</script>
+</body>
+</html>

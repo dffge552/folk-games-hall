@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五行棋</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #0a0a0f;
+  --panel:     #12121a;
+  --border:    #2a2a3a;
+  --gold:      #c8a84b;
+  --gold-dim:  #7a6530;
+  --wood:      #4caf72;
+  --water:     #4a90d9;
+  --fire:      #e05c3a;
+  --earth:     #c87941;
+  --black-p:   #e8e0d0;
+  --white-p:   #6090c0;
+  --draw:      #888;
+  --win-glow:  #c8a84b;
+  --lose-glow: #e05c3a;
+  --text:      #d0c8b8;
+  --text-dim:  #666;
+  --radius:    6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Serif TC', serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-image:
+    radial-gradient(ellipse at 20% 20%, rgba(200,168,75,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, rgba(74,144,217,0.04) 0%, transparent 60%);
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: var(--gold);
+  text-shadow: 0 0 30px rgba(200,168,75,0.3);
+  margin-bottom: 4px;
+}
+.subtitle {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+}
+
+.main-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 860px;
+}
+
+/* ── BOARD ── */
+.board-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+#board-svg {
+  width: 340px;
+  height: 340px;
+  filter: drop-shadow(0 0 20px rgba(0,0,0,0.8));
+}
+
+.board-status {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  min-height: 1.2em;
+  text-align: center;
+}
+
+/* ── PANEL ── */
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 220px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.card-title {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  font-family: 'Share Tech Mono', monospace;
+}
+
+/* Mode buttons */
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 7px 4px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.78rem;
+  transition: all 0.15s;
+  letter-spacing: 0.05em;
+}
+.btn:hover { border-color: var(--gold-dim); color: var(--text); }
+.btn.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(200,168,75,0.08);
+  box-shadow: 0 0 8px rgba(200,168,75,0.15);
+}
+
+.btn-row {
+  display: flex;
+  gap: 6px;
+}
+.btn-row .btn { flex: 1; }
+
+/* Eval display */
+.eval-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+}
+.eval-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.eval-text { font-size: 0.85rem; }
+.eval-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+}
+
+.eval-box.win  { border-color: var(--gold); background: rgba(200,168,75,0.06); }
+.eval-box.lose { border-color: var(--fire); background: rgba(224,92,58,0.06); }
+.eval-box.draw { border-color: var(--border); }
+.eval-box.unknown { border-color: var(--border); }
+
+/* Turn indicator */
+.turn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+.piece-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.piece-dot.black { background: var(--black-p); box-shadow: 0 0 6px rgba(232,224,208,0.4); }
+.piece-dot.white { background: var(--white-p); box-shadow: 0 0 6px rgba(96,144,192,0.4); }
+
+/* Move history */
+#history-list {
+  max-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+#history-list::-webkit-scrollbar { width: 3px; }
+#history-list::-webkit-scrollbar-track { background: transparent; }
+#history-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+.hist-item {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  padding: 2px 6px;
+  border-left: 2px solid var(--border);
+}
+.hist-item.latest { color: var(--text); border-left-color: var(--gold); }
+
+/* Analysis list */
+#analysis-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.analysis-item {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.68rem;
+  padding: 5px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.12s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.analysis-item:hover { border-color: var(--gold-dim); }
+.analysis-item.win-move  { border-left: 3px solid var(--gold); }
+.analysis-item.lose-move { border-left: 3px solid var(--fire); opacity: 0.6; }
+.analysis-item.draw-move { border-left: 3px solid var(--draw); }
+.analysis-badge {
+  font-size: 0.6rem;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.analysis-badge.W { background: rgba(200,168,75,0.2); color: var(--gold); }
+.analysis-badge.L { background: rgba(224,92,58,0.2); color: var(--fire); }
+.analysis-badge.D { background: rgba(136,136,136,0.15); color: var(--draw); }
+
+/* Edit palette */
+.edit-palette {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.palette-btn {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+.palette-btn.sel { border-color: var(--gold); box-shadow: 0 0 8px rgba(200,168,75,0.4); }
+.palette-btn.pb-empty { background: rgba(255,255,255,0.03); }
+.palette-btn.pb-black { background: var(--black-p); color: #000; }
+.palette-btn.pb-white { background: var(--white-p); color: #fff; }
+
+/* Loading overlay */
+#loading {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 100;
+}
+.spinner {
+  width: 40px; height: 40px;
+  border: 2px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#load-msg {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+}
+
+/* Game over banner */
+#gameover-banner {
+  display: none;
+  background: var(--panel);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 10px 18px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  box-shadow: 0 0 20px rgba(200,168,75,0.2);
+}
+
+/* 游戏说明弹窗 */
+.rules-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.rules-overlay.show { display: flex; }
+.rules-box {
+  background: var(--panel);
+  border: 2px solid var(--gold);
+  border-radius: 18px;
+  padding: 24px 28px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 80px rgba(0,0,0,0.8);
+  animation: fadeIn 0.3s ease;
+}
+.rules-box h2 {
+  font-size: 1.6rem;
+  text-align: center;
+  color: var(--gold);
+  margin-bottom: 8px;
+  letter-spacing: 0.1em;
+}
+.rules-box h3 {
+  color: var(--gold);
+  font-size: 0.9rem;
+  margin: 18px 0 8px 0;
+  border-left: 3px solid var(--gold);
+  padding-left: 12px;
+}
+.rules-box p, .rules-box li {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+.rules-box ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+.rules-close {
+  display: block;
+  margin: 24px auto 0;
+  padding: 8px 20px;
+  background: rgba(200,168,75,0.12);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 6px;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: fit-content;
+}
+.rules-close:hover { background: rgba(200,168,75,0.25); }
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* SVG piece styles injected via JS */
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div id="load-msg">載入強解資料庫...</div>
+</div>
+
+<h1>五行棋</h1>
+<div class="subtitle">WUXING BOARD GAME · PERFECT PLAY ENGINE</div>
+
+<div class="main-layout">
+  <!-- Board -->
+  <div class="board-wrap">
+    <svg id="board-svg" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg">
+      <!-- rendered by JS -->
+    </svg>
+    <div class="board-status" id="board-status">選擇模式開始遊戲</div>
+    <div id="gameover-banner"></div>
+  </div>
+
+  <!-- Panel -->
+  <div class="panel">
+    <!-- Mode -->
+    <div class="card">
+      <div class="card-title">遊戲模式</div>
+      <div class="mode-grid">
+        <button class="btn" id="btn-ai"     onclick="setMode('ai')">🤖 AI 對戰</button>
+        <button class="btn" id="btn-2p"     onclick="setMode('2p')">👥 雙人對戰</button>
+        <button class="btn" id="btn-ana"    onclick="setMode('analysis')">🔍 AI 分析</button>
+        <button class="btn" id="btn-edit"   onclick="setMode('edit')">✏️ 編輯局面</button>
+      </div>
+      <div style="margin-top:8px;" class="btn-row">
+        <button class="btn" onclick="resetGame()">↺ 重新開始</button>
+        <button class="btn" onclick="undoMove()">← 悔棋</button>
+      </div>
+      <div style="margin-top:8px;" class="btn-row">
+        <button class="btn" onclick="showGameRules()">📖 遊戲說明</button>
+      </div>
+    </div>
+
+    <!-- Turn / Eval -->
+    <div class="card">
+      <div class="card-title">局面資訊</div>
+      <div class="turn-row" id="turn-row">
+        <span class="piece-dot black"></span>
+        <span id="turn-text">黑方先手</span>
+      </div>
+      <div style="margin-top:10px;" id="eval-box-wrap">
+        <div class="eval-box unknown" id="eval-box">
+          <div class="eval-icon">⏳</div>
+          <div>
+            <div class="eval-text">等待資料庫</div>
+            <div class="eval-label">LOADING DB</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analysis moves (hidden unless analysis mode) -->
+    <div class="card" id="analysis-card" style="display:none;">
+      <div class="card-title">所有合法走法分析</div>
+      <div id="analysis-list"></div>
+    </div>
+
+    <!-- Edit palette (hidden unless edit mode) -->
+    <div class="card" id="edit-card" style="display:none;">
+      <div class="card-title">放置棋子</div>
+      <div class="edit-palette">
+        <div class="palette-btn pb-empty sel" id="pe-empty" onclick="setPalette(0)" title="清空">空</div>
+        <div class="palette-btn pb-black"     id="pe-black" onclick="setPalette(1)" title="黑方">黑</div>
+        <div class="palette-btn pb-white"     id="pe-white" onclick="setPalette(2)" title="白方">白</div>
+      </div>
+      <div style="margin-top:8px; font-size:0.68rem; color:var(--text-dim); font-family:'Share Tech Mono',monospace; line-height:1.6;">
+        點格子放置棋子<br>
+        <button class="btn" style="margin-top:6px; width:100%; font-size:0.72rem;" onclick="confirmEdit()">確認局面，開始對弈</button>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="card">
+      <div class="card-title">走法記錄</div>
+      <div id="history-list"><div style="font-size:0.68rem;color:var(--text-dim);font-family:'Share Tech Mono',monospace;">尚無走法</div></div>
+    </div>
+
+    <!-- AI color selector (ai mode) -->
+    <div class="card" id="ai-color-card">
+      <div class="card-title">你執</div>
+      <div class="btn-row">
+        <button class="btn active" id="btn-play-black" onclick="setPlayerColor(0)">⚫ 黑方</button>
+        <button class="btn"        id="btn-play-white" onclick="setPlayerColor(1)">⚪ 白方</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 游戏说明弹窗 -->
+<div id="rules-overlay" class="rules-overlay">
+  <div class="rules-box">
+    <h2>🎲 五行棋 玩法說明</h2>
+
+    <h3>🎯 遊戲目標</h3>
+    <p>將對手的棋子全部吃掉，或讓對手無合法走法即獲勝。</p>
+
+    <h3>♟️ 棋子與陣營</h3>
+    <ul>
+      <li><span style="background:#d8d0c0; display:inline-block; width:14px; height:14px; border-radius:50%;"></span> <strong>黑方（先手）</strong>：4枚，位於上方四個位置</li>
+      <li><span style="background:#4a80c8; display:inline-block; width:14px; height:14px; border-radius:50%;"></span> <strong>白方（後手）</strong>：4枚，位於下方四個位置</li>
+    </ul>
+
+    <h3>🏃 移動規則</h3>
+    <ul>
+      <li>棋子可沿著棋盤上的<strong>連線</strong>移動，每次可走<strong>1~4步</strong>（不可中途改變方向）。</li>
+      <li>移動路徑上<strong>不可穿越</strong>己方棋子。</li>
+      <li>移動路徑上<strong>不可穿越</strong>對方棋子，除非：<strong>移動恰好4步</strong>並<strong>停在對方棋子的位置上</strong>，即為「吃掉」該棋子。</li>
+      <li>被吃掉的棋子從棋盤上移除。</li>
+    </ul>
+
+    <h3>🎨 操作提示</h3>
+    <ul>
+      <li>點擊己方棋子選取，會顯示可走到的位置（高亮圓圈）。</li>
+      <li>再點擊高亮位置即可移動/吃子。</li>
+      <li>吃子後該位置即空出。</li>
+    </ul>
+
+    <h3>⚡ 特殊說明</h3>
+    <ul>
+      <li>棋子帶有五行字樣（金木水火土），僅為美觀，不影響規則。</li>
+      <li>棋盤中央四條斜線連接了各個位置。</li>
+    </ul>
+
+    <h3>🤖 AI 對戰</h3>
+    <ul>
+      <li>AI 採用<strong>完美強解資料庫（wuxingqi.bin）</strong>，所有局面均為必勝/必敗/和棋標記。</li>
+      <li>可選擇執黑（先手）或執白（後手）。</li>
+      <li>點擊「AI分析」模式可瀏覽所有合法走法的勝負結果。</li>
+    </ul>
+
+    <h3>✏️ 編輯模式</h3>
+    <ul>
+      <li>可自由擺放棋子，自訂開局。</li>
+      <li>編輯完成後點「確認局面」即可開始對弈。</li>
+    </ul>
+
+    <h3>💾 資料庫需求</h3>
+    <ul>
+      <li>本遊戲需要 <strong>wuxingqi.bin</strong> 強解資料庫檔案方可使用AI分析功能。</li>
+      <li>請確保檔案與此 HTML 位於同一目錄，並透過 HTTP Server 開啟。</li>
+    </ul>
+
+    <button class="rules-close" onclick="closeRules()">開始對弈</button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// BOARD GEOMETRY
+// ─────────────────────────────────────────────
+// Positions:
+//       [ 0][ 1]
+// [ 2][ 3][ 4][ 5]
+// [ 6][ 7][ 8][ 9]
+//       [10][11]
+
+// 在现有变量声明后添加
+let bestMoveFrom = -1;   // AI推荐走法的起点
+let bestMoveTo = -1;     // AI推荐走法的终点
+
+const CELL_XY = (() => {
+  const S = 340, M = 50, G = 80;
+  return [
+    [M+G*1, M+G*0], [M+G*2, M+G*0],
+    [M+G*0, M+G*1], [M+G*1, M+G*1], [M+G*2, M+G*1], [M+G*3, M+G*1],
+    [M+G*0, M+G*2], [M+G*1, M+G*2], [M+G*2, M+G*2], [M+G*3, M+G*2],
+    [M+G*1, M+G*3], [M+G*2, M+G*3],
+  ];
+})();
+
+const ADJ = (() => {
+  const a = Array.from({length:12}, ()=>[]);
+  const add = (x,y) => { a[x].push(y); a[y].push(x); };
+  [[0,1],[2,3],[3,4],[4,5],[6,7],[7,8],[8,9],[10,11],
+   [0,3],[1,4],[2,6],[3,7],[4,8],[5,9],[7,10],[8,11]].forEach(([x,y])=>add(x,y));
+  return a;
+})();
+
+// ─────────────────────────────────────────────
+// ENCODING (matches C++ solver exactly)
+// ─────────────────────────────────────────────
+const POW3 = (() => { const p=[]; p[0]=1; for(let i=1;i<12;i++) p[i]=p[i-1]*3; return p; })();
+const getCell = (enc, pos) => Math.floor(enc / POW3[pos]) % 3;
+const setCell = (enc, pos, val) => { const old = getCell(enc,pos); return enc + (val-old)*POW3[pos]; };
+
+function getMoves(enc, turn) {
+  const my = turn===0 ? 1 : 2, op = turn===0 ? 2 : 1;
+  const res = new Set();
+  for (let start=0; start<12; start++) {
+    if (getCell(enc,start) !== my) continue;
+    const queue = [{pos:start, steps:0, vis:1<<start}];
+    let qi = 0;
+    while (qi < queue.length) {
+      const {pos:cur, steps, vis} = queue[qi++];
+      for (const nxt of ADJ[cur]) {
+        if (vis & (1<<nxt)) continue;
+        const cell = getCell(enc, nxt);
+        const ns = steps+1, nv = vis|(1<<nxt);
+        if (cell === my) continue;
+        else if (cell === op) {
+          if (ns === 4) {
+            let ne = setCell(enc, start, 0);
+            ne = setCell(ne, nxt, my);
+            res.add(ne);
+          }
+          // can't pass through opponent unless capturing at step 4
+          continue;
+        } else {
+          let ne = setCell(enc, start, 0);
+          ne = setCell(ne, nxt, my);
+          res.add(ne);
+          if (ns < 4) queue.push({pos:nxt, steps:ns, vis:nv});
+        }
+      }
+    }
+  }
+  return [...res];
+}
+
+function checkWin(enc) {
+  let b=0, w=0;
+  for (let i=0;i<12;i++) { const c=getCell(enc,i); if(c===1)b++; else if(c===2)w++; }
+  if (b===0) return 2;
+  if (w===0) return 1;
+  return 0;
+}
+
+// ─────────────────────────────────────────────
+// DB
+// ─────────────────────────────────────────────
+let DB = null; // Map<full_key, {result, best_move}>
+
+async function loadDB() {
+  try {
+    setLoadMsg('載入 wuxingqi.bin ...');
+    const resp = await fetch('wuxingqi.bin');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const buf = await resp.arrayBuffer();
+    setLoadMsg('解析資料庫...');
+    const dv = new DataView(buf);
+    // header: 8 bytes "WUXING1!", then int32 N
+    const N = dv.getInt32(8, true);
+    DB = new Map();
+    let off = 12;
+    for (let i=0; i<N; i++) {
+      const full_key  = dv.getInt32(off,   true);
+      const best_move = dv.getInt32(off+4, true);
+      const result    = dv.getInt8 (off+8);
+      DB.set(full_key, {result, best_move});
+      off += 12;
+    }
+    setLoadMsg('完成！');
+    setTimeout(hideLoading, 400);
+  } catch(e) {
+    setLoadMsg('⚠ 無法載入 wuxingqi.bin\n請確認檔案在同目錄，並透過 HTTP server 開啟\n(' + e.message + ')');
+    // still allow play without DB (no eval)
+    setTimeout(hideLoading, 2500);
+  }
+}
+
+function dbLookup(enc, turn) {
+  if (!DB) return null;
+  const fk = enc*2 + turn;
+  return DB.get(fk) || null;
+}
+
+// ─────────────────────────────────────────────
+// GAME STATE
+// ─────────────────────────────────────────────
+let mode = 'ai'; // 'ai' | '2p' | 'analysis' | 'edit'
+let playerColor = 0; // 0=black, 1=white (for AI mode, player is this color)
+let enc = 0, turn = 0;
+let selected = -1;
+let legalTargets = []; // [{enc, fromPos, toPos}]
+let history = []; // [{enc, turn}]
+let editPalette = 0; // 0=empty,1=black,2=white
+let gameOver = false;
+let hoverEnc = -1; // for analysis hover preview
+
+function initEnc() {
+  let e = 0;
+  [0,1,3,4].forEach(p => e = setCell(e,p,1));
+  [7,8,10,11].forEach(p => e = setCell(e,p,2));
+  return e;
+}
+
+function resetGame() {
+  enc = initEnc();
+  turn = 0;
+  selected = -1;
+  legalTargets = [];
+  history = [];
+  gameOver = false;
+  hoverEnc = -1;
+  hideBanner();
+  renderAll();
+  if (mode === 'ai' && turn !== playerColor) scheduleAI();
+}
+
+// ─────────────────────────────────────────────
+// MOVE HELPERS
+// ─────────────────────────────────────────────
+function applyMove(newEnc) {
+  history.push({enc, turn});
+  enc = newEnc;
+  turn = 1 - turn;
+  selected = -1;
+  legalTargets = [];
+  hoverEnc = -1;
+}
+
+function undoMove() {
+  if (history.length === 0) return;
+  // In AI mode undo two steps (player + AI)
+  if (mode === 'ai' && history.length >= 2) {
+    history.pop(); history.pop();
+    const s = history[history.length-1] || {enc: initEnc(), turn: 0};
+    enc = history.length>0 ? (() => { const r=history.pop(); enc=r.enc; turn=r.turn; history.push(r); return r.enc; })() : initEnc();
+    // simpler:
+    const prev2 = history[history.length-1];
+    enc = prev2 ? prev2.enc : initEnc();
+    turn = prev2 ? prev2.turn : 0;
+    // pop those two we already popped; now restore
+    // Actually redo cleanly:
+    const snap = history.pop();
+    enc = snap.enc; turn = snap.turn;
+  } else {
+    const snap = history.pop();
+    enc = snap.enc; turn = snap.turn;
+  }
+  selected = -1; legalTargets = []; gameOver = false; hoverEnc = -1;
+  hideBanner();
+  renderAll();
+}
+
+// ─────────────────────────────────────────────
+// AI
+// ─────────────────────────────────────────────
+function scheduleAI() {
+  setTimeout(doAIMove, 350);
+}
+
+function doAIMove() {
+  if (gameOver) return;
+  if (mode !== 'ai') return;
+  const rec = dbLookup(enc, turn);
+  let chosenEnc = -1;
+  if (rec && rec.best_move !== -1) {
+    chosenEnc = rec.best_move;
+  } else {
+    // fallback: random legal move
+    const moves = getMoves(enc, turn);
+    if (moves.length > 0) chosenEnc = moves[Math.floor(Math.random()*moves.length)];
+  }
+  if (chosenEnc === -1) { endGame(turn); return; }
+  applyMove(chosenEnc);
+  renderAll();
+  checkEndGame();
+}
+
+// ─────────────────────────────────────────────
+// END GAME
+// ─────────────────────────────────────────────
+function checkEndGame() {
+  const w = checkWin(enc);
+  if (w !== 0) { endGame(1-turn); return; } // last mover wins (opp of current turn)
+  const moves = getMoves(enc, turn);
+  if (moves.length === 0) { endGame(1-turn); return; }
+  // AI move
+  if (mode === 'ai' && turn !== playerColor && !gameOver) scheduleAI();
+}
+
+function endGame(winner) {
+  gameOver = true;
+  const names = ['黑方','白方'];
+  showBanner(names[winner] + '獲勝！');
+  renderAll();
+}
+
+// ─────────────────────────────────────────────
+// CLICK HANDLING
+// ─────────────────────────────────────────────
+function onCellClick(pos) {
+  if (mode === 'edit') {
+    enc = setCell(enc, pos, editPalette);
+    renderBoard();
+    return;
+  }
+  if (gameOver) return;
+
+
+
+  // 2p or ai (player's turn)
+  if (mode === 'ai' && turn !== playerColor) return;
+
+  const my = turn===0 ? 1 : 2;
+
+  // Check if clicking a legal target
+  const target = legalTargets.find(t => t.toPos === pos);
+  if (target) {
+    applyMove(target.enc);
+    renderAll();
+    checkEndGame();
+    return;
+  }
+
+  // Select own piece
+  if (getCell(enc, pos) === my) {
+    selected = pos;
+    computeLegalTargets();
+    renderBoard();
+    return;
+  }
+
+  // Deselect
+  selected = -1;
+  legalTargets = [];
+  renderBoard();
+}
+
+function computeLegalTargets() {
+  if (selected === -1) { legalTargets = []; return; }
+  const my = turn===0 ? 1 : 2, op = turn===0 ? 2 : 1;
+  const start = selected;
+  const targets = new Map(); // toPos -> enc
+  const queue = [{pos:start, steps:0, vis:1<<start}];
+  let qi = 0;
+  while (qi < queue.length) {
+    const {pos:cur, steps, vis} = queue[qi++];
+    for (const nxt of ADJ[cur]) {
+      if (vis & (1<<nxt)) continue;
+      const cell = getCell(enc, nxt);
+      const ns = steps+1, nv = vis|(1<<nxt);
+      if (cell === my) continue;
+      else if (cell === op) {
+        if (ns === 4) {
+          let ne = setCell(enc, start, 0);
+          ne = setCell(ne, nxt, my);
+          if (!targets.has(nxt)) targets.set(nxt, ne);
+        }
+        continue;
+      } else {
+        let ne = setCell(enc, start, 0);
+        ne = setCell(ne, nxt, my);
+        if (!targets.has(nxt)) targets.set(nxt, ne);
+        if (ns < 4) queue.push({pos:nxt, steps:ns, vis:nv});
+      }
+    }
+  }
+  legalTargets = [...targets.entries()].map(([toPos, e]) => ({enc:e, fromPos:start, toPos}));
+}
+
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
+const svg = document.getElementById('board-svg');
+
+function renderBoard(previewEnc = -1) {
+  const displayEnc = previewEnc >= 0 ? previewEnc : enc;
+  let html = '';
+
+  // Background
+  html += `<rect width="340" height="340" fill="#0e0e16" rx="8"/>`;
+  // Subtle grid texture
+  html += `<pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+    <circle cx="10" cy="10" r="0.5" fill="rgba(255,255,255,0.04)"/>
+  </pattern>
+  <rect width="340" height="340" fill="url(#dots)" rx="8"/>`;
+
+  // Edges
+  for (let i=0; i<12; i++) {
+    for (const j of ADJ[i]) {
+      if (j > i) {
+        const [x1,y1] = CELL_XY[i], [x2,y2] = CELL_XY[j];
+        html += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2a2a40" stroke-width="2"/>`;
+      }
+    }
+  }
+
+  // Legal target highlights
+  const targetPositions = new Set(legalTargets.map(t=>t.toPos));
+
+  // ⭐ AI 推荐走法高亮（起点蓝色，终点绿色）
+  if (mode === 'analysis' && bestMoveFrom !== -1 && bestMoveTo !== -1 && previewEnc < 0) {
+    // 起点：蓝色高亮
+    const [fx, fy] = CELL_XY[bestMoveFrom];
+    html += `<circle cx="${fx}" cy="${fy}" r="24" fill="rgba(41,128,185,0.25)" stroke="#2980b9" stroke-width="2.5" stroke-dasharray="4,3"/>`;
+    html += `<circle cx="${fx}" cy="${fy}" r="14" fill="rgba(41,128,185,0.15)"/>`;
+
+    // 终点：绿色高亮
+    const [tx, ty] = CELL_XY[bestMoveTo];
+    html += `<circle cx="${tx}" cy="${ty}" r="24" fill="rgba(39,174,96,0.25)" stroke="#27ae60" stroke-width="2.5" stroke-dasharray="4,3"/>`;
+    html += `<circle cx="${tx}" cy="${ty}" r="14" fill="rgba(39,174,96,0.15)"/>`;
+
+    // 箭头连接
+    const arrowOffset = 18;
+    const dx = tx - fx, dy = ty - fy;
+    const len = Math.hypot(dx, dy);
+    if (len > 0.01) {
+      const ux = dx / len, uy = dy / len;
+      const startX = fx + ux * arrowOffset;
+      const startY = fy + uy * arrowOffset;
+      const endX = tx - ux * arrowOffset;
+      const endY = ty - uy * arrowOffset;
+      html += `<line x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}" stroke="rgba(200,168,75,0.8)" stroke-width="2.5" stroke-dasharray="5,4"/>`;
+      // 箭头头部
+      const angle = Math.atan2(dy, dx);
+      const arrX = endX, arrY = endY;
+      const arrSize = 8;
+      html += `<polygon points="${arrX},${arrY} ${arrX-arrSize*Math.cos(angle-0.5)},${arrY-arrSize*Math.sin(angle-0.5)} ${arrX-arrSize*Math.cos(angle+0.5)},${arrY-arrSize*Math.sin(angle+0.5)}" fill="rgba(200,168,75,0.8)"/>`;
+    }
+  }
+
+  // Cells
+  for (let i=0; i<12; i++) {
+    const [cx,cy] = CELL_XY[i];
+    const cell = getCell(displayEnc, i);
+    const isSelected = (i === selected && previewEnc < 0);
+    const isTarget = targetPositions.has(i) && previewEnc < 0;
+
+    // Node circle
+    const nodeR = 8;
+    html += `<circle cx="${cx}" cy="${cy}" r="${nodeR}" fill="${cell===0?'#1a1a28':'transparent'}" stroke="#3a3a50" stroke-width="1"/>`;
+
+    // Target indicator
+    if (isTarget) {
+      html += `<circle cx="${cx}" cy="${cy}" r="22" fill="rgba(200,168,75,0.08)" stroke="rgba(200,168,75,0.4)" stroke-width="1" stroke-dasharray="3,2"/>`;
+    }
+
+    // Piece
+    if (cell !== 0) {
+      const isBlack = cell === 1;
+      const r = 18;
+
+      if (isSelected) {
+        html += `<circle cx="${cx}" cy="${cy}" r="${r+4}" fill="rgba(200,168,75,0.15)" stroke="rgba(200,168,75,0.8)" stroke-width="1.5"/>`;
+      }
+
+      // Piece shadow
+      html += `<circle cx="${cx+2}" cy="${cy+2}" r="${r}" fill="rgba(0,0,0,0.5)"/>`;
+      // Piece body
+      const grad = isBlack ? 'grad_b' : 'grad_w';
+      html += `<defs>
+        <radialGradient id="${grad}_${i}" cx="35%" cy="30%" r="65%">
+          <stop offset="0%" stop-color="${isBlack?'#f0e8d8':'#7aacec'}"/>
+          <stop offset="100%" stop-color="${isBlack?'#888078':'#2a5898'}"/>
+        </radialGradient>
+      </defs>`;
+      html += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${grad}_${i})" stroke="${isBlack?'#c0b890':'#3060a0'}" stroke-width="1.2"/>`;
+      // Shine
+      html += `<ellipse cx="${cx-5}" cy="${cy-5}" rx="6" ry="4" fill="rgba(255,255,255,${isBlack?'0.12':'0.18'})" transform="rotate(-20,${cx},${cy})"/>`;
+      // Chinese character
+      const chars = ['金','木','水','火','土','金','木','水','火','土','金','木'];
+      const charColors = ['#b8a050','#3a9060','#2870b8','#c04030','#b06828','#b8a050','#3a9060','#2870b8','#c04030','#b06828','#b8a050','#3a9060'];
+      html += `<text x="${cx}" y="${cy+5}" text-anchor="middle" font-family="Noto Serif TC,serif" font-size="14" font-weight="700" fill="${charColors[i]}" opacity="0.9">${chars[i]}</text>`;
+    }
+
+    // Clickable overlay
+    html += `<circle cx="${cx}" cy="${cy}" r="24" fill="transparent" style="cursor:pointer" onclick="onCellClick(${i})"/>`;
+  }
+
+  svg.innerHTML = html;
+}
+
+// 游戏说明弹窗
+function showGameRules() {
+  document.getElementById('rules-overlay').classList.add('show');
+}
+
+function closeRules() {
+  document.getElementById('rules-overlay').classList.remove('show');
+}
+
+// 点击弹窗背景关闭
+document.getElementById('rules-overlay')?.addEventListener('click', function(e) {
+  if (e.target === this) closeRules();
+});
+
+function renderEval() {
+  const box = document.getElementById('eval-box');
+  if (mode !== 'analysis') {
+    box.parentElement.style.display = 'none';
+    return;
+  }
+  box.parentElement.style.display = 'block';
+  if (!DB) {
+    box.className = 'eval-box unknown';
+    box.innerHTML = `<div class="eval-icon">📂</div><div><div class="eval-text">未載入資料庫</div><div class="eval-label">DB NOT LOADED</div></div>`;
+    return;
+  }
+  if (gameOver) {
+    box.className = 'eval-box';
+    box.innerHTML = `<div class="eval-icon">🏁</div><div><div class="eval-text">遊戲結束</div><div class="eval-label">GAME OVER</div></div>`;
+    return;
+  }
+  const w = checkWin(enc);
+  if (w !== 0) {
+    const winner = w===1 ? '黑方' : '白方';
+    box.className = 'eval-box win';
+    box.innerHTML = `<div class="eval-icon">👑</div><div><div class="eval-text">${winner}獲勝</div><div class="eval-label">CHECKMATE</div></div>`;
+    return;
+  }
+  const rec = dbLookup(enc, turn);
+  if (!rec) {
+    box.className = 'eval-box unknown';
+    box.innerHTML = `<div class="eval-icon">❓</div><div><div class="eval-text">未知局面</div><div class="eval-label">UNKNOWN POSITION</div></div>`;
+    return;
+  }
+  const turnName = turn===0 ? '黑方' : '白方';
+  if (rec.result === 1) {
+    box.className = 'eval-box win';
+    box.innerHTML = `<div class="eval-icon">⚔️</div><div><div class="eval-text">${turnName}必勝</div><div class="eval-label">FORCED WIN</div></div>`;
+  } else if (rec.result === 2) {
+    box.className = 'eval-box lose';
+    box.innerHTML = `<div class="eval-icon">💀</div><div><div class="eval-text">${turnName}必敗</div><div class="eval-label">FORCED LOSS</div></div>`;
+  } else {
+    box.className = 'eval-box draw';
+    box.innerHTML = `<div class="eval-icon">⚖️</div><div><div class="eval-text">和棋局面</div><div class="eval-label">DRAW POSITION</div></div>`;
+  }
+}
+
+function renderTurn() {
+  const tr = document.getElementById('turn-row');
+  const tt = document.getElementById('turn-text');
+  if (gameOver) { tt.textContent = '遊戲結束'; return; }
+  const dot = tr.querySelector('.piece-dot');
+  dot.className = 'piece-dot ' + (turn===0 ? 'black' : 'white');
+  tt.textContent = (turn===0 ? '黑方' : '白方') + '行棋';
+  if (mode==='ai') {
+    tt.textContent += turn===playerColor ? '（你）' : '（AI）';
+  }
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (history.length === 0) {
+    list.innerHTML = '<div style="font-size:0.68rem;color:var(--text-dim);font-family:\'Share Tech Mono\',monospace;">尚無走法</div>';
+    return;
+  }
+  list.innerHTML = history.map((h,i) => {
+    const who = h.turn===0 ? '黑' : '白';
+    const isLatest = i===history.length-1;
+    return `<div class="hist-item${isLatest?' latest':''}">#${i+1} ${who}方走棋</div>`;
+  }).reverse().join('');
+}
+
+function renderAnalysis() {
+  const card = document.getElementById('analysis-card');
+  if (mode !== 'analysis') { card.style.display='none'; return; }
+  card.style.display='block';
+  const list = document.getElementById('analysis-list');
+  if (gameOver || checkWin(enc)!==0) { list.innerHTML='<div style="font-size:0.68rem;color:var(--text-dim);">遊戲結束</div>'; return; }
+  const moves = getMoves(enc, turn);
+  if (moves.length === 0) { list.innerHTML='<div style="font-size:0.68rem;color:var(--text-dim);">無合法走法</div>'; return; }
+  const nt = 1-turn;
+
+  // 找出最佳走法索引（用于列表标记🌟）
+  let bestMoveIdx = -1;
+  let bestScore = -2;
+  moves.forEach((m, idx) => {
+    const rec = dbLookup(m, nt);
+    let score = 0;
+    if (rec) {
+      if (rec.result === 2) score = 1;
+      else if (rec.result === 1) score = -1;
+      else score = 0;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestMoveIdx = idx;
+    }
+  });
+
+  list.innerHTML = moves.map((m,idx) => {
+    const rec = dbLookup(m, nt);
+    let badge='D', cls='draw-move', label='和棋';
+    if (rec) {
+      if (rec.result===2) { badge='W'; cls='win-move'; label='必勝'; }
+      else if (rec.result===1) { badge='L'; cls='lose-move'; label='必敗'; }
+    } else if (!DB) { badge='?'; cls='draw-move'; label='未知'; }
+    const isBest = (idx === bestMoveIdx);
+    const bestStyle = isBest ? 'border-left: 3px solid #27ae60; background: rgba(39,174,96,0.08);' : '';
+    return `<div class="analysis-item ${cls}" style="${bestStyle}" onclick="updateHighlightFromMove(${m})">
+      <span>走法 ${idx+1}${isBest ? ' 🌟推荐' : ''}</span>
+      <span class="analysis-badge ${badge}">${label}</span>
+    </div>`;
+  }).join('');
+}
+
+function updateHighlightFromMove(newEnc) {
+  // 只更新高亮，不移动棋子
+  const my = turn === 0 ? 1 : 2;
+  let foundFrom = -1, foundTo = -1;
+  for (let i = 0; i < 12; i++) {
+    if (getCell(enc, i) === my && getCell(newEnc, i) !== my) {
+      foundFrom = i;
+    }
+    if (getCell(enc, i) !== my && getCell(newEnc, i) === my) {
+      foundTo = i;
+    }
+  }
+  bestMoveFrom = foundFrom;
+  bestMoveTo = foundTo;
+  renderBoard();
+}
+
+function renderAll() {
+  // ✅ 先计算分析模式的高亮（在渲染棋盘之前）
+  if (mode === 'analysis') {
+    const moves = getMoves(enc, turn);
+    if (moves.length > 0) {
+      const nt = 1 - turn;
+      let bestMoveIdx = -1;
+      let bestScore = -2;
+      moves.forEach((m, idx) => {
+        const rec = dbLookup(m, nt);
+        let score = 0;
+        if (rec) {
+          if (rec.result === 2) score = 1;
+          else if (rec.result === 1) score = -1;
+          else score = 0;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestMoveIdx = idx;
+        }
+      });
+      if (bestMoveIdx !== -1) {
+        const bestEnc = moves[bestMoveIdx];
+        const my = turn === 0 ? 1 : 2;
+        let foundFrom = -1, foundTo = -1;
+        for (let i = 0; i < 12; i++) {
+          if (getCell(enc, i) === my && getCell(bestEnc, i) !== my) foundFrom = i;
+          if (getCell(enc, i) !== my && getCell(bestEnc, i) === my) foundTo = i;
+        }
+        bestMoveFrom = foundFrom;
+        bestMoveTo = foundTo;
+      }
+    }
+  }
+
+  // 再渲染所有
+  renderBoard();
+  renderEval();
+  renderTurn();
+  renderHistory();
+  renderAnalysis();
+  updateModeButtons();
+}
+
+// ─────────────────────────────────────────────
+// MODE
+// ─────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  selected = -1; legalTargets = []; hoverEnc = -1;
+  bestMoveFrom = -1; bestMoveTo = -1;  // ⭐ 重置高亮
+  document.getElementById('analysis-card').style.display = m==='analysis' ? 'block' : 'none';
+  document.getElementById('edit-card').style.display     = m==='edit'     ? 'block' : 'none';
+  document.getElementById('ai-color-card').style.display = m==='ai'       ? 'block' : 'none';
+  if (m === 'analysis') {
+    renderAll();
+  } else {
+    resetGame();
+  }
+}
+
+function updateModeButtons() {
+  ['ai','2p','analysis','edit'].forEach(m => {
+    const b = document.getElementById('btn-'+m);
+    if (b) b.className = 'btn' + (mode===m?' active':'');
+  });
+}
+
+function setPlayerColor(c) {
+  playerColor = c;
+  document.getElementById('btn-play-black').className = 'btn'+(c===0?' active':'');
+  document.getElementById('btn-play-white').className = 'btn'+(c===1?' active':'');
+  resetGame();
+}
+
+// ─────────────────────────────────────────────
+// EDIT
+// ─────────────────────────────────────────────
+function setPalette(v) {
+  editPalette = v;
+  ['empty','black','white'].forEach((n,i) => {
+    document.getElementById('pe-'+n).classList.toggle('sel', i===v);
+  });
+}
+
+function confirmEdit() {
+  setMode('ai');
+  // Keep current enc, switch to ai mode
+  mode = 'ai';
+  turn = 0;
+  gameOver = false;
+  document.getElementById('edit-card').style.display='none';
+  document.getElementById('ai-color-card').style.display='block';
+  renderAll();
+  if (turn !== playerColor) scheduleAI();
+}
+
+// ─────────────────────────────────────────────
+// BANNER
+// ─────────────────────────────────────────────
+function showBanner(msg) {
+  const b = document.getElementById('gameover-banner');
+  b.style.display='block';
+  b.textContent = msg;
+}
+function hideBanner() {
+  document.getElementById('gameover-banner').style.display='none';
+}
+
+// ─────────────────────────────────────────────
+// LOADING
+// ─────────────────────────────────────────────
+function setLoadMsg(m) { document.getElementById('load-msg').textContent = m; }
+function hideLoading()  { document.getElementById('loading').style.display='none'; }
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+enc = initEnc();
+turn = 0;
+renderAll();
+
+loadDB().then(() => {
+  renderAll();
+  if (mode==='ai' && turn!==playerColor) scheduleAI();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>總遊戲說明 · 民間棋類大廳</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700;900&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --ink: #1c1810;
+            --paper-dark: #241f16;
+            --paper-mid: #2d261c;
+            --gold-ink: #c9a84c;
+            --gold-dim: #8b6f32;
+            --line-color: #4d3e2a;
+            --text-primary: #e8ddc8;
+            --text-secondary: #b8a77a;
+            --text-dim: #7c6a48;
+        }
+        body {
+            background: radial-gradient(circle at 20% 30%, #1f1910, #0f0b06);
+            font-family: 'Noto Serif TC', serif;
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 1.5rem 1rem 3rem;
+            position: relative;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-image: repeating-linear-gradient(0deg, rgba(180,140,80,0.03) 0px, rgba(180,140,80,0.03) 2px, transparent 2px, transparent 8px),
+            radial-gradient(circle at 70% 20%, rgba(201,168,76,0.08) 0%, transparent 50%);
+            z-index: 0;
+        }
+        .container { max-width: 980px; margin: 0 auto; position: relative; z-index: 2; }
+
+        /* 頭部 */
+        .header { text-align: center; margin-bottom: 2rem; padding: 1rem 1rem 1.2rem; background: linear-gradient(to bottom, rgba(45,38,28,0.65), rgba(20,16,10,0.5)); border-top: 1px solid var(--gold-dim); border-bottom: 1px solid var(--gold-dim); box-shadow: 0 5px 20px rgba(0,0,0,0.4); backdrop-filter: blur(1px); border-radius: 2px; }
+        .logo { font-family: 'Ma Shan Zheng', cursive; font-size: 2rem; letter-spacing: 0.2em; color: var(--gold-ink); text-shadow: 3px 3px 0 #2a1e0c; display: inline-block; }
+        .subtitle { font-size: 0.7rem; letter-spacing: 0.3em; color: var(--text-secondary); border-top: 1px dashed var(--gold-dim); display: inline-block; margin-top: 8px; padding-top: 6px; }
+
+        /* 返回連結 */
+        .back-link { display: inline-block; margin-bottom: 1rem; color: var(--gold-dim); text-decoration: none; font-size: 0.85rem; transition: 0.2s; }
+        .back-link:hover { color: var(--gold-ink); transform: translateX(-3px); }
+
+        /* 宗旨 */
+        .manifesto { background: rgba(30,24,16,0.6); border-left: 4px solid var(--gold-ink); padding: 1.2rem 1.5rem; margin: 1.2rem 0 2rem; border-radius: 0 12px 12px 0; backdrop-filter: blur(3px); line-height: 1.8; font-size: 0.92rem; color: var(--text-secondary); }
+        .manifesto strong { color: var(--gold-ink); }
+
+        /* 搜尋 */
+        .search-wrapper { margin: 1.5rem 0 1.8rem; }
+        .search-box { background: rgba(12,9,5,0.75); border: 1px solid var(--line-color); border-radius: 48px; display: flex; align-items: center; backdrop-filter: blur(4px); }
+        .search-icon { font-family: 'Ma Shan Zheng', cursive; padding: 0 1rem; color: var(--gold-dim); background: rgba(0,0,0,0.3); border-radius: 48px 0 0 48px; line-height: 46px; }
+        .search-box input { flex: 1; background: transparent; border: none; padding: 12px; color: var(--text-primary); font-size: 0.9rem; outline: none; }
+        .search-box input::placeholder { color: #5a4d32; font-style: italic; }
+        .search-count { text-align: right; font-size: 0.7rem; color: var(--text-dim); margin-top: 6px; }
+
+        /* 摺疊面板 */
+        .games-section { margin: 2rem 0 2.5rem; }
+        .section-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.5rem; color: var(--gold-ink); border-bottom: 1px solid var(--gold-dim); display: inline-block; margin-bottom: 1.2rem; letter-spacing: 4px; }
+        .game-accordion { background: rgba(20,16,10,0.5); border: 1px solid var(--line-color); border-radius: 12px; margin-bottom: 12px; backdrop-filter: blur(2px); }
+        .game-header { display: flex; justify-content: space-between; align-items: center; padding: 0.9rem 1.2rem; cursor: pointer; border-radius: 12px; transition: background 0.2s; }
+        .game-header:hover { background: rgba(201,168,76,0.08); }
+        .game-title { font-family: 'Ma Shan Zheng', cursive; font-size: 1.2rem; color: var(--text-secondary); letter-spacing: 2px; }
+        .expand-hint { font-size: 0.7rem; color: var(--gold-dim); background: rgba(0,0,0,0.4); padding: 2px 8px; border-radius: 30px; }
+        .game-content { max-height: 0; overflow: hidden; transition: max-height 0.45s ease-out; padding: 0 1.2rem; }
+        .game-content.show { max-height: 800px; padding: 0 1.2rem 1.2rem 1.2rem; border-top: 1px dashed var(--line-color); }
+        .rule-text { font-size: 0.85rem; line-height: 1.75; margin-bottom: 12px; }
+        .rule-text ul, .rule-text ol { padding-left: 1.6rem; margin: 6px 0; }
+        .play-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; padding: 5px 14px; background: rgba(201,168,76,0.12); border: 1px solid var(--gold-dim); border-radius: 40px; color: var(--gold-ink); text-decoration: none; font-size: 0.8rem; transition: 0.2s; }
+        .play-link:hover { background: rgba(201,168,76,0.25); transform: translateX(4px); }
+
+        /* 貢獻者 */
+        .contribute-box { background: linear-gradient(135deg, #2a2118, #1c1610); border: 1px solid var(--gold-dim); border-radius: 20px; padding: 1.6rem 2rem; margin: 2rem 0 1.8rem; }
+        .contribute-box h3 { font-family: 'Ma Shan Zheng', cursive; font-size: 1.4rem; color: var(--gold-ink); margin-bottom: 12px; }
+        .contact-email { background: rgba(0,0,0,0.4); display: inline-block; padding: 5px 15px; border-radius: 40px; font-family: monospace; color: var(--gold-ink); margin: 8px 0; }
+        .contributor-list { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line-color); font-size: 0.8rem; color: var(--text-dim); }
+
+        /* 結語 */
+        .epilogue { text-align: center; padding: 1.8rem 1rem; margin-top: 1rem; border-top: 1px solid var(--line-color); font-style: italic; line-height: 1.9; color: var(--text-secondary); }
+        .footer { text-align: center; margin-top: 1.8rem; font-size: 0.68rem; color: #5f4f32; letter-spacing: 2px; padding-top: 1rem; opacity: 0.7; }
+        .no-match { text-align: center; padding: 2rem; color: var(--text-dim); background: rgba(0,0,0,0.3); border-radius: 24px; }
+        @media (max-width: 680px) { .logo { font-size: 1.7rem; } .game-title { font-size: 1rem; } .contribute-box { padding: 1.2rem; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">📖 總遊戲說明</div>
+        <div class="subtitle">· 民間棋類 · 規則彙編 ·</div>
+    </div>
+
+    <a href="index.html" class="back-link">← 返回遊戲大廳</a>
+
+    <!-- 宗旨 -->
+    <div class="manifesto">
+        <p><strong>平台創立初衷</strong><br>圍棋、象棋、國際象棋人人皆知，然而在世界上，還流傳著許多「叫不出名字，許多阿公阿嬤卻都會下」的棋。</p>
+        <p>奧雀雀棋、靶棋、車輪棋……等等，這些棋藝曾是街頭巷尾的日常娛樂。然而隨著長輩凋零，這些民間智慧正面臨失傳的危機。</p>
+        <p>本平台蒐集了<strong>十八種世界傳統民間棋類</strong>，將其數位化，讓任何人隨時都能體驗這些老一輩的智慧結晶。<br>保存它們，不只是保存遊戲規則，更是保存一個時代的溫度。</p>
+    </div>
+
+    <!-- 搜尋 -->
+    <div class="search-wrapper">
+        <div class="search-box">
+            <span class="search-icon">🔍 尋棋</span>
+            <input type="text" id="searchInput" placeholder="輸入棋類名稱快速篩選（如：靶棋、車輪棋）" autocomplete="off">
+        </div>
+        <div class="search-count" id="searchCount">共 18 種棋類</div>
+    </div>
+
+    <!-- 遊戲規則總覽 -->
+    <div class="games-section">
+        <div class="section-title">🎲 點擊標題展開規則</div>
+        <div id="gamesContainer"></div>
+    </div>
+
+    <!-- 貢獻者提案 -->
+    <div class="contribute-box">
+        <h3>📢 徵求世界各地的民間棋類資料</h3>
+        <p>您是否還記得長輩曾經教過、卻不在這份清單上的棋？<br>歡迎提供：棋類名稱、棋盤樣式、棋子數量、走法規則、吃子規則、勝利條件。<br><span style="font-size:0.75rem;">（若有照片、手繪棋盤圖、長輩口述錄音更佳）</span></p>
+        <p>經確認資訊/規則屬實、完成數位化上線後，<strong>您將被標記為該棋類的「貢獻者」</strong>，永久列於感謝名單中。</p>
+        <div class="contact-email">📩 聯絡信箱：<a href="mailto:xianqitw@gmail.com" style="color:var(--gold-ink); text-decoration:none;">xianqitw@gmail.com</a></div>
+        <div class="contributor-list">🌟 貢獻者感謝名單（預留）— 本平台作者誠摯邀請您一同參與文化保存。</div>
+    </div>
+
+    <!-- 結語 -->
+    <div class="epilogue">
+        <p>這些棋，或許沒有華麗的包裝，但它們是這世界上最樸實、最真誠的遊戲。</p>
+        <p>希望透過這個平台，讓更多人認識/體會到這些即將被遺忘的棋藝，讓年輕一代也能體驗長輩們童年時的快樂。</p>
+        <p><strong>每一局棋，都是一次文化的延續。</strong></p>
+        <p>— 本平台作者 敬上 —</p>
+    </div>
+
+    <div class="footer">🎋 非營利文化保存 · 民間蒐集數位化 🎋</div>
+</div>
+
+<script>
+    const gamesData = [
+        { name: "奧雀雀棋", file: "auquequeqi.html", rules: "棋盤 5×5 交叉點，黑白各 12 子。步行：沿線移動 1 步（不可後退）。跳行：可跳過相鄰棋子（己方或敵方）落在後方空位；若跳過敵方必須吃掉，可連續跳吃。勝：吃光對方棋子或使對方無法移動，若雙方皆無法移動則比剩餘棋子數。" },
+        { name: "靶棋", file: "baqi.html", rules: "13 個棋位（圓心+內中外三環）。布子階段各放 4 子（黑先），再輪流沿線移動 1 步（無吃子）。勝：佔滿內圓/中圓/外圓任一個環的全部 4 點，或使對方無路可走。" },
+        { name: "車輪棋", file: "chelunqi.html", rules: "9 個棋位（中心+8 外環）。布子階段各放 3 子（金方先），再輪流沿線移 1 步。勝：形成直線三連（含中心＋相對兩點或外環相鄰三點），或使對方無路可走。" },
+        { name: "打把棋", file: "dabaqi.html", rules: "三角形棋盤結構。移動 1 步，可跳吃（連續跳）。特殊吃子：兩銳角棋吃直角棋（三角形底邊兩角為己方，直角頂點為對方即吃掉）。勝：對方只剩 1 枚棋子。" },
+        { name: "單線跳棋", file: "danxiantiaoqi.html", rules: "19 格直線，黑從 0-4 出發向右走到 14-18，白反向。步行前進 1 格、跳過棋子、全體無法動時由最前棋子「大跳」。最先讓 5 子全到對岸者勝。" },
+        { name: "鬥蛇棋", file: "dousheqi.html", rules: "25 節點 + 4 六邊形中心。移動一格，跳吃：直線跳過相鄰敵子落後方空位（不可連跳，不可跳己方）。勝：全吃對方或使對方無步。" },
+        { name: "割豆腐棋", file: "gedoufuqi.html", rules: "4×4 棋盤。步行上下左右一格；吃子：斜向跳入敵子位置。勝：全吃對方棋子或無步可走。AI 白先。" },
+        { name: "宮棋", file: "gongqi.html", rules: "10×10 棋盤，黑白各 25 子，輪流放滿後結算吃子。吃子依據連線長度：長度 3/4 吃兩端，長度 5 吃平行方向，長度 6 吃雙平行。受保護的長線棋子無法被吃。吃子多者勝。" },
+        { name: "虎雞蟲棒棋", file: "hujichongbangqi.html", rules: "虎吃雞、雞吃蟲、蟲吃棒、棒吃虎。沿線移動一格，走到敵方格子且符合相剋即吃。不可回己方大本營。進入對方大本營即勝。" },
+        { name: "積分棋", file: "jifenqi.html", rules: "7×7 交叉點構成 36 個小方格（各含數字）。落子填滿四個角時，該方格分數歸「落下第四子」的一方，且同一方可連續下。49 格填滿結算總分（滿分 132），高分者勝。" },
+        { name: "輪行棋", file: "lunxingqi.html", rules: "19 節點，紅藍各 4 子依編號輪流走。移動 1 格到相鄰空位；若輪到之子無步則停走一著跳過對方。驅逐：從非目的地移動到對方目標格可將敵子驅逐至空位。先讓己方全進對方起始區獲勝。" },
+        { name: "雙扇棋", file: "shuangshanqi.html", rules: "13 節點（上下扇）。紅下扇，黑上扇各 6 子。普通移動 1 格，跳吃：越過敵子落空位並吃掉。勝：吃光對手；雙方各剩 1 子為和。" },
+        { name: "四季棋", file: "sijiqi.html", rules: "10×10 棋盤。春夏方 vs 秋冬方，棋子可沿直線任意格（不可穿越）。春↔秋相互阻擋，夏↔冬相互阻擋。勝：使對手無法移動。" },
+        { name: "圍虎棋", file: "weihuqi.html", rules: "5×5 點位，黑 16 犬 vs 白 1 虎（白先）。步行一格。虎吃子：移動後若直線兩側各有一黑且外側無黑則吃二子。黑勝：虎被封死；白勝：累積吃 6 黑子。" },
+        { name: "五蹦蹦棋", file: "wubengbengqi.html", rules: "5×5 棋盤，黑底線/白頂線各 5 子 + 備用 20。階段：布子→走子→跳吃（連跳最多3次，跳後補子）→拔子（滿盤時拔對方一子）。勝：全吃對方所有棋子（含備用）。" },
+        { name: "五棍棋", file: "wugunqi.html", rules: "5×5 棋盤，先手 13 子後手 12 子。放子→逼子→走子。成項（通天/大棍/四斜/三斜/小方）即吃一子，成項中棋子受保護。勝：對手棋子少於 2 枚。" },
+        { name: "五行棋", file: "wuxingqi.html", rules: "12 節點五行陣。棋子沿線走 1~4 步（不可穿越己方）；恰好 4 步走到對方棋位則吃掉對方棋子。勝：全吃對方或對方無步。" },
+        { name: "五子飛棋", file: "wuzifeiqi.html", rules: "5×5 棋盤。直線斜線不限距離移動（不可穿越）。吃子三種可選：夾死、挑擔、槍斃。勝：全吃對方棋子。" }
+    ];
+
+    const orderedNames = ["奧雀雀棋","靶棋","車輪棋","打把棋","單線跳棋","鬥蛇棋","割豆腐棋","宮棋","虎雞蟲棒棋","積分棋","輪行棋","雙扇棋","四季棋","圍虎棋","五蹦蹦棋","五棍棋","五行棋","五子飛棋"];
+    const fullGames = orderedNames.map(name => gamesData.find(g => g.name === name));
+
+    function renderGames(filterKeyword = "") {
+        const container = document.getElementById("gamesContainer");
+        const keyword = filterKeyword.trim().toLowerCase();
+        const filtered = keyword === "" ? fullGames : fullGames.filter(g => g.name.toLowerCase().includes(keyword));
+        document.getElementById("searchCount").textContent = `共 ${filtered.length} 種棋類${keyword ? `（符合「${keyword}」）` : ""}`;
+        if (filtered.length === 0) {
+            container.innerHTML = `<div class="no-match">⚡ 未尋得此棋 · 請換個字號再試 ⚡</div>`;
+            return;
+        }
+        container.innerHTML = filtered.map((game, idx) => `
+      <div class="game-accordion" data-gamename="${game.name}">
+        <div class="game-header" data-target="game-${idx}">
+          <span class="game-title">${game.name}</span>
+          <span class="expand-hint">▼ 點擊展開規則</span>
+        </div>
+        <div id="game-${idx}" class="game-content">
+          <div class="rule-text"><p>${game.rules}</p></div>
+          <a href="${game.file}" class="play-link">👉 前往遊玩</a>
+        </div>
+      </div>
+    `).join("");
+        document.querySelectorAll(".game-header").forEach(header => {
+            header.addEventListener("click", () => {
+                const targetId = header.getAttribute("data-target");
+                const contentDiv = document.getElementById(targetId);
+                if (contentDiv) {
+                    contentDiv.classList.toggle("show");
+                    const hintSpan = header.querySelector(".expand-hint");
+                    hintSpan.innerHTML = contentDiv.classList.contains("show") ? "▲ 點擊收起規則" : "▼ 點擊展開規則";
+                }
+            });
+        });
+    }
+
+    let debounceTimer;
+    function handleSearch() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => renderGames(document.getElementById("searchInput").value), 180);
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+        renderGames("");
+        document.getElementById("searchInput").addEventListener("input", handleSearch);
+    });
+</script>
+</body>
+</html>

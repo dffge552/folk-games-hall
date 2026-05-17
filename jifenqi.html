@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>積分棋</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Oswald:wght@300;400;600&display=swap');
+  :root {
+    --bg:#1a1208; --surface:#241a0e; --surface2:#2e2010;
+    --border:#5a3e1a; --accent:#c8860a; --accent2:#e8a020; --gold:#f0c040;
+    --text:#e8d8a0; --text2:#a89060;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'Noto Serif TC',serif;
+    min-height:100vh;display:flex;flex-direction:column;
+    align-items:center;padding:16px 8px;
+    background-image:radial-gradient(ellipse at 20% 20%,rgba(200,134,10,.06) 0%,transparent 60%),
+      radial-gradient(ellipse at 80% 80%,rgba(100,60,10,.08) 0%,transparent 60%);
+  }
+  h1{
+    font-family:'Oswald',sans-serif;font-size:2.2rem;font-weight:600;
+    letter-spacing:.15em;color:var(--gold);
+    text-shadow:0 0 30px rgba(240,192,64,.4);margin-bottom:4px;
+  }
+  .subtitle{font-size:.75rem;color:var(--text2);letter-spacing:.25em;margin-bottom:16px;}
+  .layout{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;justify-content:center;width:100%;max-width:1040px;}
+  .sidebar{width:210px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;}
+  .panel-title{font-family:'Oswald',sans-serif;font-size:.75rem;letter-spacing:.2em;color:var(--text2);margin-bottom:8px;text-transform:uppercase;}
+  .score-cards{display:flex;gap:8px;}
+  .score-card{flex:1;border-radius:6px;padding:8px 6px;text-align:center;border:2px solid transparent;transition:all .25s;}
+  .score-card.p1{background:rgba(26,26,26,.6);border-color:#444;}
+  .score-card.p2{background:rgba(240,192,64,.1);border-color:#6b5020;}
+  .score-card.active{border-color:var(--accent2)!important;box-shadow:0 0 12px rgba(232,160,32,.4);}
+  .score-card .label{font-size:.65rem;color:var(--text2);margin-bottom:4px;}
+  .score-card .score{font-family:'Oswald',sans-serif;font-size:1.8rem;font-weight:600;color:var(--gold);}
+  .stone-dot{width:18px;height:18px;border-radius:50%;margin:4px auto 0;border:2px solid;}
+  .p1 .stone-dot{background:#222;border-color:#777;box-shadow:inset 0 -2px 4px rgba(255,255,255,.15);}
+  .p2 .stone-dot{background:#f0ece0;border-color:#c8b870;box-shadow:inset 0 -2px 4px rgba(0,0,0,.2);}
+  .turn-label{text-align:center;font-size:.78rem;color:var(--text2);padding:6px 0;border-top:1px solid var(--border);margin-top:6px;}
+  .turn-label span{color:var(--accent2);font-weight:700;}
+  .mode-btns,.action-btns{display:flex;flex-direction:column;gap:5px;}
+  .mode-btn,.action-btn{
+    background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    padding:7px 10px;border-radius:5px;cursor:pointer;
+    font-family:'Noto Serif TC',serif;font-size:.78rem;text-align:left;transition:all .2s;
+  }
+  .mode-btn:hover,.action-btn:hover{border-color:var(--accent);color:var(--gold);}
+  .mode-btn.active,.action-btn.on{background:rgba(200,134,10,.2);border-color:var(--accent);color:var(--gold);}
+  .action-btn:disabled{opacity:.35;cursor:not-allowed;}
+  .ai-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .ai-row label{font-size:.72rem;color:var(--text2);}
+  .ai-row select,.ai-row input[type=range]{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 5px;font-size:.72rem;}
+  .ai-row input[type=range]{width:75px;accent-color:var(--accent);}
+  .ai-thinking{display:none;text-align:center;padding:6px;font-size:.72rem;color:var(--accent2);}
+  .ai-thinking.on{display:block;}
+  .dots::after{content:'...';animation:dots 1.2s infinite;}
+  @keyframes dots{0%{content:'.'}33%{content:'..'}66%{content:'...'}}
+  #log{height:110px;overflow-y:auto;font-size:.65rem;line-height:1.7;color:var(--text2);background:var(--bg);border-radius:4px;padding:6px;}
+  #log::-webkit-scrollbar{width:3px;}
+  #log::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .le{border-bottom:1px solid rgba(90,62,26,.3);padding:1px 0;}
+  .c0{color:#88aaff;}.c1{color:var(--gold);}.cg{color:#40e080;font-weight:700;}.ce{color:var(--accent2);}
+  .board-area{display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .edit-toolbar{display:none;background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:8px 12px;gap:8px;align-items:center;font-size:.75rem;}
+  .edit-toolbar.on{display:flex;}
+  .edit-radio{display:flex;gap:6px;}
+  .edit-radio label{cursor:pointer;padding:4px 10px;border-radius:4px;border:1px solid var(--border);color:var(--text);transition:all .15s;}
+  .edit-radio input[type=radio]{display:none;}
+  .edit-radio input[type=radio]:checked+label{background:rgba(200,134,10,.25);border-color:var(--accent);color:var(--gold);}
+  #boardCanvas{border-radius:10px;cursor:pointer;box-shadow:0 8px 40px rgba(0,0,0,.6),0 0 0 1px var(--border);display:block;}
+  #analysisInfo{display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:.72rem;color:var(--text2);max-width:520px;text-align:center;}
+  #analysisInfo.on{display:block;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;}
+  .modal-overlay.on{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:28px 32px;text-align:center;max-width:320px;width:90%;box-shadow:0 0 60px rgba(200,134,10,.25);}
+  .modal h2{font-family:'Oswald',sans-serif;font-size:1.6rem;color:var(--gold);margin-bottom:8px;}
+  .rs-row{display:flex;gap:16px;justify-content:center;margin:14px 0;}
+  .rs{text-align:center;}
+  .rs .rname{font-size:.7rem;color:var(--text2);margin-bottom:4px;}
+  .rs .rval{font-family:'Oswald',sans-serif;font-size:2rem;color:var(--gold);}
+  .winner-msg{font-size:1rem;margin:8px 0 16px;}
+  .modal button{background:rgba(200,134,10,.2);border:1px solid var(--accent);color:var(--gold);padding:8px 24px;border-radius:6px;cursor:pointer;font-family:'Noto Serif TC',serif;font-size:.85rem;transition:all .2s;}
+  .modal button:hover{background:rgba(200,134,10,.4);}
+  /* 遊戲說明彈窗 */
+  #help-overlay{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,0.85);z-index:200;
+    align-items:center;justify-content:center;
+  }
+  #help-overlay.show{display:flex;}
+  .help-box{
+    background:linear-gradient(135deg,#2a1e0e,#1e1206);
+    border:2px solid var(--accent);border-radius:12px;
+    padding:28px 32px;max-width:500px;width:90%;
+    max-height:80vh;overflow-y:auto;
+    box-shadow:0 8px 40px rgba(0,0,0,0.6);
+  }
+  .help-box h2{
+    font-family:'Oswald',sans-serif;
+    font-size:1.8rem;color:var(--gold);
+    margin-bottom:12px;text-align:center;
+  }
+  .help-box h3{
+    font-size:0.95rem;color:var(--accent2);
+    margin:20px 0 8px 0;border-left:3px solid var(--accent);
+    padding-left:10px;
+  }
+  .help-box p,.help-box ul{
+    font-size:0.8rem;color:var(--text2);line-height:1.65;
+    margin:6px 0;padding-left:20px;
+  }
+  .help-box ul li{margin:5px 0;}
+  .help-box strong{color:var(--gold);}
+  .close-help{
+    display:block;margin:24px auto 0 auto;
+    background:rgba(200,134,10,0.2);border:1px solid var(--accent);
+    color:var(--gold);padding:8px 28px;border-radius:30px;
+    font-family:'Noto Serif TC',serif;font-size:0.85rem;
+    cursor:pointer;transition:all 0.2s;
+  }
+  .close-help:hover{background:rgba(200,134,10,0.4);}
+</style>
+</head>
+<body>
+<h1>積 分 棋</h1>
+<p class="subtitle">7×7 棋盤 ｜ 36方格 ｜ 總分 132</p>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="panel">
+      <div class="panel-title">比分</div>
+      <div class="score-cards">
+        <div class="score-card p1" id="card0">
+          <div class="label">玩家一</div>
+          <div class="stone-dot"></div>
+          <div class="score" id="score0">0</div>
+        </div>
+        <div class="score-card p2" id="card1">
+          <div class="label">玩家二</div>
+          <div class="stone-dot"></div>
+          <div class="score" id="score1">0</div>
+        </div>
+      </div>
+      <div class="turn-label" id="turnLabel">輪到 <span>玩家一</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">遊戲模式</div>
+      <div class="mode-btns">
+        <button class="mode-btn" data-mode="pvp" onclick="setMode(this)">⚔ 雙人對戰</button>
+        <button class="mode-btn" data-mode="pva0" onclick="setMode(this)">🤖 我先手 vs AI</button>
+        <button class="mode-btn" data-mode="pva1" onclick="setMode(this)">🤖 AI先手 vs 我</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">AI 設定</div>
+      <div class="ai-row">
+        <label>思考時間</label>
+        <input type="range" id="aiTime" min="0.5" max="5" step="0.5" value="2"
+          oninput="document.getElementById('aiTimeVal').textContent=this.value+'s'">
+        <span id="aiTimeVal" style="font-size:.7rem;color:var(--accent2);min-width:2.5em;">2s</span>
+      </div>
+      <div class="ai-row">
+        <label>難度</label>
+        <select id="aiLevel">
+          <option value="easy">簡單</option>
+          <option value="normal" selected>普通</option>
+          <option value="hard">困難</option>
+        </select>
+      </div>
+      <div class="ai-thinking" id="aiThinking">AI 思考中<span class="dots"></span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">操作</div>
+      <div class="action-btns">
+        <button class="action-btn" onclick="newGame()">🎲 新遊戲</button>
+        <button class="action-btn" id="undoBtn" onclick="undo()">↩ 悔棋</button>
+        <button class="action-btn" id="editBtn" onclick="toggleEdit()">✏ 編輯局面</button>
+        <button class="action-btn" id="analyzeBtn" onclick="toggleAnalysis()">🔍 AI 分析</button>
+        <button class="action-btn" onclick="showHelp()">📖 遊戲說明</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-area">
+    <div class="edit-toolbar" id="editToolbar">
+      <label>放置：</label>
+      <div class="edit-radio">
+        <input type="radio" name="ep" id="ep0" value="0" checked><label for="ep0">●黑子</label>
+        <input type="radio" name="ep" id="ep1" value="1"><label for="ep1">○白子</label>
+        <input type="radio" name="ep" id="epX" value="-1"><label for="epX">✕清除</label>
+      </div>
+      <button class="action-btn" onclick="finishEdit()" style="padding:4px 12px;font-size:.72rem;">完成</button>
+    </div>
+    <canvas id="boardCanvas"></canvas>
+    <div id="analysisInfo">
+      <strong style="color:var(--gold)">AI 分析模式</strong>：🟢 綠色＝建議落點，🔴 紅色＝較差落點。懸停查看勝率。
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="panel" style="flex:1">
+      <div class="panel-title">棋譜</div>
+      <div id="log"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">方格分數參考</div>
+      <canvas id="scoreRef" width="186" height="140"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>遊戲結束</h2>
+    <div class="rs-row">
+      <div class="rs"><div class="rname">玩家一 ●</div><div class="rval" id="mS0">0</div></div>
+      <div class="rs"><div class="rname">玩家二 ○</div><div class="rval" id="mS1">0</div></div>
+    </div>
+    <div class="winner-msg" id="modalWinner"></div>
+    <button onclick="newGame()">再來一局</button>
+  </div>
+</div>
+<!-- 遊戲說明彈窗 -->
+<div id="help-overlay">
+  <div class="help-box">
+    <h2>🎲 積分棋</h2>
+
+    <h3>🎯 遊戲目標</h3>
+    <p>將棋盤上的 49 個格子全部填滿，結算時<strong>總分較高者獲勝</strong>。總分固定為 132 分，若雙方各得 66 分則為和局。</p>
+
+    <h3>🧩 得分規則</h3>
+    <p>棋盤由 6×6 = 36 個<strong>小方格</strong>組成，每個小方格內有數字（1~9）。當一個小方格的<strong>四個角</strong>都放滿棋子時，該方格的數字即歸<strong>「落下第四顆棋子」的一方</strong>所有，且該方格會標記為該方顏色。</p>
+    <p>💡 關鍵：<strong>得分後不換手</strong>，同一方可以連續落子！</p>
+
+    <h3>🎮 基本規則</h3>
+    <ul>
+      <li>雙方輪流在 7×7 的交叉點上落子（黑● / 白○）。</li>
+      <li>每落一子，可能會同時完成<strong>多個小方格</strong>，一次獲得複數分數。</li>
+      <li>已得分的小方格不會重複計分。</li>
+      <li>當 49 個交叉點全部填滿時，遊戲結束。</li>
+    </ul>
+
+    <h3>🤖 AI 模式</h3>
+    <ul>
+      <li><strong>我先手 vs AI</strong>：您持黑先下，AI 持白後下。</li>
+      <li><strong>AI先手 vs 我</strong>：AI 持黑先下，您持白後下。</li>
+      <li>可調整 AI 思考時間與難度（簡單/普通/困難）。</li>
+    </ul>
+
+    <h3>🔍 AI 分析模式</h3>
+    <ul>
+      <li>點擊「AI 分析」後，棋盤上會以<strong>🟢 綠色圓圈</strong>顯示建議落子位置（勝率較高）。</li>
+      <li>滑鼠懸停在格子會顯示預估勝率與分析次數。</li>
+      <li>再次點擊按鈕可關閉分析模式。</li>
+    </ul>
+
+    <h3>✏️ 編輯局面</h3>
+    <p>可自由擺放棋子，完成後會自動計算當前分數與輪次，適合用來測試特定局面。</p>
+
+    <h3>💡 策略提示</h3>
+    <ul>
+      <li>一次完成「多個小方格」是拉開分差的關鍵。</li>
+      <li>注意不要「送格」給對手（讓對手下一子就能得分）。</li>
+      <li>控制中央區域有較多高分方格（如 9、8 等）。</li>
+    </ul>
+
+    <button class="close-help" onclick="closeHelp()">開始對弈</button>
+  </div>
+</div>
+
+<script>
+// ── 分數（依圖片）──
+const SQ=[
+  [1,2,3,4,5,6],
+  [2,9,5,1,3,5],
+  [3,4,1,2,7,4],
+  [4,3,6,4,1,3],
+  [5,1,2,5,8,2],
+  [6,5,4,3,2,1],
+];
+const TOTAL=SQ.flat().reduce((a,b)=>a+b,0); // 132
+
+// ── 核心規則說明 ──
+// 1. board[r][c]: -1=空, 0=黑棋, 1=白棋（棋子無歸屬分別，只記錄「有無」）
+// 2. captured[sr][sc]: -1=未得分, 0/1=哪方落下第四顆而得分
+// 3. 四角全有棋子（不論顏色）→ 落下最後一顆的人得分
+// 4. 得分後繼續由同一方落子（不換手）
+// 5. 全部49格填滿後統計，66:66為和局
+
+function makeState(){
+  return{
+    board:Array.from({length:7},()=>Array(7).fill(-1)),
+    captured:Array.from({length:6},()=>Array(6).fill(-1)),
+    scores:[0,0],
+    current:0,
+    stonesLeft:49,
+  };
+}
+
+function cloneState(s){
+  return{
+    board:s.board.map(r=>r.slice()),
+    captured:s.captured.map(r=>r.slice()),
+    scores:s.scores.slice(),
+    current:s.current,
+    stonesLeft:s.stonesLeft,
+  };
+}
+
+function legalMoves(s){
+  const m=[];
+  for(let r=0;r<7;r++) for(let c=0;c<7;c++) if(s.board[r][c]===-1) m.push([r,c]);
+  return m;
+}
+
+// 放下棋子後，檢查哪些方格四角都有棋子（且尚未被得分）
+function checkSquares(s,r,c){
+  const done=[];
+  for(const[dr,dc]of[[-1,-1],[-1,0],[0,-1],[0,0]]){
+    const sr=r+dr,sc=c+dc;
+    if(sr<0||sr>5||sc<0||sc>5) continue;
+    if(s.captured[sr][sc]!==-1) continue;
+    const corners=[[sr,sc],[sr,sc+1],[sr+1,sc],[sr+1,sc+1]];
+    if(corners.every(([br,bc])=>s.board[br][bc]!==-1)) done.push([sr,sc]);
+  }
+  return done;
+}
+
+// 落子，回傳 {extra:bool, completed:[[sr,sc],...], gain:number}
+function applyMove(s,r,c){
+  if(s.board[r][c]!==-1) return{extra:false,completed:[],gain:0};
+  s.board[r][c]=s.current;
+  s.stonesLeft--;
+  const done=checkSquares(s,r,c);
+  if(done.length>0){
+    let gain=0;
+    for(const[sr,sc]of done){
+      s.captured[sr][sc]=s.current;
+      gain+=SQ[sr][sc];
+    }
+    s.scores[s.current]+=gain;
+    // 不換手，同一方繼續
+    return{extra:true,completed:done,gain};
+  }
+  s.current^=1;
+  return{extra:false,completed:[],gain:0};
+}
+
+function isTerminal(s){return s.stonesLeft===0;}
+
+function winner(s){
+  if(s.scores[0]>s.scores[1]) return 0;
+  if(s.scores[1]>s.scores[0]) return 1;
+  return -1;
+}
+
+// 編輯模式後重算（無法判斷誰是「第四顆」，以黑子數≥白子數者得分）
+function recomputeCaptures(s){
+  for(let sr=0;sr<6;sr++) for(let sc=0;sc<6;sc++) s.captured[sr][sc]=-1;
+  s.scores=[0,0];
+  for(let sr=0;sr<6;sr++) for(let sc=0;sc<6;sc++){
+    const corners=[[sr,sc],[sr,sc+1],[sr+1,sc],[sr+1,sc+1]];
+    if(corners.every(([br,bc])=>s.board[br][bc]!==-1)){
+      const cnt=[0,0];
+      for(const[br,bc]of corners) cnt[s.board[br][bc]]++;
+      const owner=cnt[0]>=cnt[1]?0:1;
+      s.captured[sr][sc]=owner;
+      s.scores[owner]+=SQ[sr][sc];
+    }
+  }
+  s.stonesLeft=s.board.flat().filter(v=>v===-1).length;
+}
+
+// ── Alpha-Beta AI ──
+
+// 分析每個交叉點對哪些方格有影響（缺幾角）
+function getSquareInfo(s){
+  // 回傳每個方格的 placed 數（0~4）和是否已得分
+  const info=[];
+  for(let sr=0;sr<6;sr++){
+    info[sr]=[];
+    for(let sc=0;sc<6;sc++){
+      if(s.captured[sr][sc]!==-1){info[sr][sc]={placed:4,done:true};continue;}
+      const corners=[[sr,sc],[sr,sc+1],[sr+1,sc],[sr+1,sc+1]];
+      const placed=corners.filter(([br,bc])=>s.board[br][bc]!==-1).length;
+      info[sr][sc]={placed,done:false};
+    }
+  }
+  return info;
+}
+
+// 評估函數：從 player=0 的角度返回分數
+function evaluate(s){
+  if(isTerminal(s)){
+    const diff=s.scores[0]-s.scores[1];
+    return diff*1000; // 終局給極大權重
+  }
+
+  const sqInfo=getSquareInfo(s);
+  let eval0=0;
+
+  // 1. 分差（最重要）
+  const scoreDiff=s.scores[0]-s.scores[1];
+  eval0+=scoreDiff*10;
+
+  // 2. 缺1格控制：誰即將得分
+  let danger0=0,danger1=0; // 各自可立即吃到的格子分數
+  for(let sr=0;sr<6;sr++) for(let sc=0;sc<6;sc++){
+    const{placed,done}=sqInfo[sr][sc];
+    if(done) continue;
+    if(placed===3){
+      // 找出缺少的那個角
+      const corners=[[sr,sc],[sr,sc+1],[sr+1,sc],[sr+1,sc+1]];
+      // 當前玩家若落在此格即可得分
+      if(s.current===0) danger0+=SQ[sr][sc];
+      else danger1+=SQ[sr][sc];
+    }
+  }
+  eval0+=(danger0-danger1)*5;
+
+  // 3. 連通鏈評估：找出「缺1格」的連通格群
+  // 若一條鏈全部缺1格（且共用同一個缺角），落一子可吃多格
+  const visited=Array.from({length:6},()=>Array(6).fill(false));
+  function findChain(sr0,sc0){
+    // BFS 找缺3格（placed=3）的相鄰連通區域
+    const queue=[[sr0,sc0]];
+    visited[sr0][sc0]=true;
+    let totalScore=0,count=0;
+    while(queue.length){
+      const[r,c]=queue.shift();
+      if(sqInfo[r][c].placed===3&&!sqInfo[r][c].done){
+        totalScore+=SQ[r][c];count++;
+        for(const[dr,dc]of[[-1,0],[1,0],[0,-1],[0,1]]){
+          const nr=r+dr,nc=c+dc;
+          if(nr>=0&&nr<6&&nc>=0&&nc<6&&!visited[nr][nc]&&
+             sqInfo[nr][nc].placed===3&&!sqInfo[nr][nc].done){
+            visited[nr][nc]=true;queue.push([nr,nc]);
+          }
+        }
+      }
+    }
+    return{totalScore,count};
+  }
+  let chainBonus=0;
+  for(let sr=0;sr<6;sr++) for(let sc=0;sc<6;sc++){
+    if(!visited[sr][sc]&&sqInfo[sr][sc].placed===3&&!sqInfo[sr][sc].done){
+      const{totalScore,count}=findChain(sr,sc);
+      if(count>=2) chainBonus+=(s.current===0?1:-1)*totalScore*0.8;
+    }
+  }
+  eval0+=chainBonus;
+
+  // 4. 送格懲罰：若我落子後讓對手出現缺1格，扣分
+  let giftPenalty=0;
+  for(let r=0;r<7;r++) for(let c=0;c<7;c++){
+    if(s.board[r][c]!==-1) continue;
+    let wouldGift=0;
+    for(const[dr,dc]of[[-1,-1],[-1,0],[0,-1],[0,0]]){
+      const sr=r+dr,sc=c+dc;
+      if(sr<0||sr>5||sc<0||sc>5||sqInfo[sr][sc].done) continue;
+      if(sqInfo[sr][sc].placed===2) wouldGift+=SQ[sr][sc];// 落子後變缺1
+    }
+    // 只對當前玩家的「非得分步」計算
+    let wouldScore=false;
+    for(const[dr,dc]of[[-1,-1],[-1,0],[0,-1],[0,0]]){
+      const sr=r+dr,sc=c+dc;
+      if(sr<0||sr>5||sc<0||sc>5||sqInfo[sr][sc].done) continue;
+      if(sqInfo[sr][sc].placed===3) wouldScore=true;
+    }
+    if(!wouldScore&&wouldGift>0){
+      if(s.current===0) giftPenalty-=wouldGift*1.5;
+      else giftPenalty+=wouldGift*1.5;
+    }
+  }
+  eval0+=giftPenalty;
+
+  // 5. 已佔方格數量優勢（較次要）
+  let sq0=0,sq1=0;
+  for(let sr=0;sr<6;sr++) for(let sc=0;sc<6;sc++){
+    if(s.captured[sr][sc]===0) sq0++;
+    else if(s.captured[sr][sc]===1) sq1++;
+  }
+  eval0+=(sq0-sq1)*0.3;
+
+  return eval0;
+}
+
+// 排序移動：得分步優先，送格步最後
+function orderMoves(s,moves){
+  const scored=[],safe=[],risky=[];
+  const sqInfo=getSquareInfo(s);
+  for(const[r,c]of moves){
+    let willScore=false,willGift=false;
+    for(const[dr,dc]of[[-1,-1],[-1,0],[0,-1],[0,0]]){
+      const sr=r+dr,sc=c+dc;
+      if(sr<0||sr>5||sc<0||sc>5||sqInfo[sr][sc].done) continue;
+      if(sqInfo[sr][sc].placed===3) willScore=true;
+      if(sqInfo[sr][sc].placed===2) willGift=true;
+    }
+    if(willScore) scored.push([r,c]);
+    else if(willGift) risky.push([r,c]);
+    else safe.push([r,c]);
+  }
+  return[...scored,...safe,...risky];
+}
+
+// Alpha-Beta 搜索
+// perspective: AI 玩家編號（0 或 1），最大化自身分數
+function alphaBeta(s,depth,alpha,beta,perspective,startTime,timeLimitMs){
+  if(Date.now()-startTime>timeLimitMs) return{score:evaluate(s),move:null,timeout:true};
+  if(isTerminal(s)||depth===0) return{score:evaluate(s)*(perspective===0?1:-1),move:null};
+
+  const moves=legalMoves(s);
+  if(!moves.length) return{score:evaluate(s)*(perspective===0?1:-1),move:null};
+
+  const ordered=orderMoves(s,moves);
+  const isMax=(s.current===perspective);
+  let bestMove=ordered[0];
+  let bestScore=isMax?-Infinity:Infinity;
+
+  for(const[r,c]of ordered){
+    const ns=cloneState(s);
+    const prevPlayer=ns.current;
+    applyMove(ns,r,c);
+
+    // 若得分後繼續同方落子，不減少深度（連鎖不計深度）
+    const nextDepth=(ns.current===prevPlayer)?depth:depth-1;
+
+    const{score,timeout}=alphaBeta(ns,nextDepth,alpha,beta,perspective,startTime,timeLimitMs);
+    if(timeout) return{score,move:bestMove,timeout:true};
+
+    if(isMax){
+      if(score>bestScore){bestScore=score;bestMove=[r,c];}
+      alpha=Math.max(alpha,bestScore);
+    }else{
+      if(score<bestScore){bestScore=score;bestMove=[r,c];}
+      beta=Math.min(beta,bestScore);
+    }
+    if(beta<=alpha) break; // 剪枝
+  }
+  return{score:bestScore,move:bestMove};
+}
+
+// 迭代加深：在時間內盡量搜更深
+function mcts(rootState,timeMs){
+  const moves=legalMoves(rootState);
+  if(!moves.length) return{move:null,iters:0,heatmap:{}};
+
+  const lv=document.getElementById('aiLevel').value;
+  const perspective=rootState.current;
+  const startTime=Date.now();
+
+  // 難度決定最大深度與時間
+  const maxDepth=lv==='easy'?2:lv==='hard'?8:5;
+  const tl=lv==='easy'?Math.min(300,timeMs):timeMs;
+
+  let bestMove=orderMoves(rootState,moves)[0]; // 預設最優先排序的步
+  let reachedDepth=0;
+
+  for(let depth=1;depth<=maxDepth;depth++){
+    const{move,timeout}=alphaBeta(rootState,depth,-Infinity,Infinity,perspective,startTime,tl);
+    if(move) bestMove=move;
+    reachedDepth=depth;
+    if(timeout||Date.now()-startTime>=tl) break;
+  }
+
+  // 生成 heatmap（供分析模式用）：對每個根節點的合法步淺層評分
+  const heatmap={};
+  const orderedMoves=orderMoves(rootState,moves);
+  const hmTime=Math.min(200,timeMs*0.3);
+  const hmStart=Date.now();
+  for(const[r,c]of orderedMoves){
+    if(Date.now()-hmStart>hmTime) break;
+    const ns=cloneState(rootState);
+    applyMove(ns,r,c);
+    const rawScore=evaluate(ns)*(perspective===0?1:-1);
+    // 正規化成 0~1 的「勝率」表示
+    const wr=1/(1+Math.exp(-rawScore/20));
+    heatmap[r*7+c]={visits:reachedDepth,winRate:wr,move:[r,c]};
+  }
+
+  return{move:bestMove,iters:reachedDepth,heatmap};
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+
+// ── Canvas ──
+const canvas=document.getElementById('boardCanvas');
+const ctx=canvas.getContext('2d');
+let CELL=68,PAD=38;
+
+function resize(){
+  const avail=Math.max(300,Math.min(window.innerWidth-460,560));
+  CELL=Math.floor((avail-PAD*2)/6);
+  canvas.width=CELL*6+PAD*2;
+  canvas.height=CELL*6+PAD*2;
+  if(state) draw();
+}
+
+function gxy(r,c){return[PAD+c*CELL,PAD+r*CELL];}
+
+function xyToGrid(x,y){
+  const c=Math.round((x-PAD)/CELL);
+  const r=Math.round((y-PAD)/CELL);
+  if(r<0||r>6||c<0||c>6) return null;
+  const[gx,gy]=gxy(r,c);
+  if(Math.abs(x-gx)<CELL*.42&&Math.abs(y-gy)<CELL*.42) return[r,c];
+  return null;
+}
+
+function draw(){
+  if(!state) return;
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // Board bg
+  const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*.7);
+  bg.addColorStop(0,'#3a2810');bg.addColorStop(1,'#1c1006');
+  ctx.fillStyle=bg;
+  ctx.beginPath();ctx.roundRect(0,0,W,H,12);ctx.fill();
+
+  // Square fills + scores
+  for(let sr=0;sr<6;sr++) for(let sc=0;sc<6;sc++){
+    const[x1,y1]=gxy(sr,sc);
+    const own=state.captured[sr][sc];
+    ctx.fillStyle=own===0?'rgba(80,120,200,.22)':own===1?'rgba(200,160,20,.22)':'rgba(200,140,20,.05)';
+    ctx.fillRect(x1,y1,CELL,CELL);
+    ctx.font=`bold ${Math.floor(CELL*.3)}px Oswald,sans-serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=own===-1?'rgba(200,160,60,.5)':own===0?'rgba(140,180,255,.9)':'rgba(255,210,60,.9)';
+    ctx.fillText(SQ[sr][sc],x1+CELL/2,y1+CELL/2);
+    if(own!==-1){
+      ctx.font=`${Math.floor(CELL*.17)}px Noto Serif TC,serif`;
+      ctx.fillStyle=own===0?'rgba(140,180,255,.65)':'rgba(255,210,60,.65)';
+      ctx.fillText(own===0?'●':'○',x1+CELL/2,y1+CELL/2+CELL*.26);
+    }
+  }
+
+  // Heatmap
+  if(analysisMode&&aiHeatmap){
+    const maxV=Math.max(1,...Object.values(aiHeatmap).map(h=>h.visits));
+    for(const h of Object.values(aiHeatmap)){
+      const[r,c]=h.move;const[x,y]=gxy(r,c);
+      const alpha=.1+(h.visits/maxV)*.6;
+      ctx.beginPath();ctx.arc(x,y,CELL*.38,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${h.winRate>.5?110:0},70%,50%,${alpha})`;
+      ctx.fill();
+    }
+  }
+
+  // Grid lines
+  ctx.strokeStyle='rgba(170,110,25,.65)';ctx.lineWidth=1.2;
+  for(let i=0;i<7;i++){
+    const[x]=gxy(0,i);const[,y]=gxy(i,0);
+    ctx.beginPath();ctx.moveTo(x,PAD);ctx.lineTo(x,H-PAD);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(PAD,y);ctx.lineTo(W-PAD,y);ctx.stroke();
+  }
+
+  // Stones
+  for(let r=0;r<7;r++) for(let c=0;c<7;c++){
+    const p=state.board[r][c];if(p===-1) continue;
+    const[x,y]=gxy(r,c);const R=CELL*.36;
+    ctx.beginPath();ctx.arc(x+2,y+3,R,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.45)';ctx.fill();
+    ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);
+    if(p===0){
+      const g=ctx.createRadialGradient(x-R*.3,y-R*.3,R*.05,x,y,R);
+      g.addColorStop(0,'#555');g.addColorStop(1,'#111');ctx.fillStyle=g;
+    }else{
+      const g=ctx.createRadialGradient(x-R*.3,y-R*.3,R*.05,x,y,R);
+      g.addColorStop(0,'#fffaee');g.addColorStop(1,'#d0c080');ctx.fillStyle=g;
+    }
+    ctx.fill();
+    ctx.strokeStyle=p===0?'#555':'#b09030';ctx.lineWidth=1.2;ctx.stroke();
+    if(lastMove&&lastMove[0]===r&&lastMove[1]===c){
+      ctx.beginPath();ctx.arc(x,y,R*.3,0,Math.PI*2);
+      ctx.fillStyle=p===0?'rgba(255,255,255,.7)':'rgba(0,0,0,.45)';ctx.fill();
+    }
+  }
+
+  // Empty dots
+  for(let r=0;r<7;r++) for(let c=0;c<7;c++){
+    if(state.board[r][c]!==-1) continue;
+    const[x,y]=gxy(r,c);
+    ctx.beginPath();ctx.arc(x,y,1.8,0,Math.PI*2);
+    ctx.fillStyle='rgba(180,130,40,.45)';ctx.fill();
+  }
+
+  drawScoreRef();
+}
+
+function drawScoreRef(){
+  const rc=document.getElementById('scoreRef');
+  if(!rc||!state) return;
+  const cx=rc.getContext('2d');
+  const CW=rc.width,CH=rc.height;
+  const cw=(CW-2)/6,ch=(CH-2)/6;
+  cx.fillStyle='#1e1206';cx.fillRect(0,0,CW,CH);
+  for(let r=0;r<6;r++) for(let c=0;c<6;c++){
+    const x=1+c*cw,y=1+r*ch;
+    const own=state.captured[r][c];
+    cx.fillStyle=own===0?'rgba(80,120,200,.3)':own===1?'rgba(200,160,20,.3)':'rgba(200,140,20,.05)';
+    cx.fillRect(x,y,cw,ch);
+    cx.strokeStyle='rgba(170,110,25,.35)';cx.strokeRect(x,y,cw,ch);
+    cx.font=`bold ${Math.floor(ch*.48)}px Oswald,sans-serif`;
+    cx.textAlign='center';cx.textBaseline='middle';
+    cx.fillStyle=own===0?'rgba(140,180,255,.85)':own===1?'rgba(255,210,60,.85)':'rgba(200,160,60,.65)';
+    cx.fillText(SQ[r][c],x+cw/2,y+ch/2);
+  }
+}
+
+// ── UI ──
+function updateUI(){
+  if(!state) return;
+  document.getElementById('score0').textContent=state.scores[0];
+  document.getElementById('score1').textContent=state.scores[1];
+  const term=isTerminal(state);
+  document.getElementById('card0').classList.toggle('active',state.current===0&&!term);
+  document.getElementById('card1').classList.toggle('active',state.current===1&&!term);
+  const names=['玩家一','玩家二'];
+  const tl=document.getElementById('turnLabel');
+  if(term){tl.innerHTML='遊戲結束';}
+  else{
+    const isAI=(mode==='pva0'&&state.current===1)||(mode==='pva1'&&state.current===0)||mode==='ava';
+    tl.innerHTML=`輪到 <span>${names[state.current]}${isAI?' (AI)':''}</span>`;
+  }
+}
+
+function addLog(html){
+  const log=document.getElementById('log');
+  const div=document.createElement('div');div.className='le';div.innerHTML=html;
+  log.appendChild(div);log.scrollTop=log.scrollHeight;
+}
+
+// ── Game variables ──
+let state,history,lastMove,mode,editMode,analysisMode,aiHeatmap,aiRunning;
+
+function newGame(){
+  state=makeState();
+  history=[];lastMove=null;aiHeatmap=null;
+  analysisMode=false;editMode=false;aiRunning=false;
+  document.getElementById('editToolbar').classList.remove('on');
+  document.getElementById('editBtn').classList.remove('on');
+  document.getElementById('analysisInfo').classList.remove('on');
+  document.getElementById('analyzeBtn').classList.remove('on');
+  document.getElementById('modalOverlay').classList.remove('on');
+  document.getElementById('aiThinking').classList.remove('on');
+  document.getElementById('log').innerHTML='';
+  addLog('🎲 新遊戲開始');
+  updateUI();draw();
+  scheduleAI();
+}
+
+function doMove(r,c){
+  if(!state||isTerminal(state)) return;
+  if(state.board[r][c]!==-1) return;
+  history.push({snap:cloneState(state),r,c});
+  lastMove=[r,c];
+  const cp=state.current;
+  const res=applyMove(state,r,c);
+  const cc=cp===0?'c0':'c1';
+  const names=['玩家一','玩家二'];
+  let msg=`<span class="${cc}">${names[cp]}</span> 落(${r},${c})`;
+  if(res.extra){
+    const sq=res.completed.map(([a,b])=>`[${a},${b}]`).join('');
+    msg+=` <span class="cg">+${res.gain}分${sq}</span> <span class="ce">★</span>`;
+  }
+  addLog(msg);
+  updateUI();draw();
+  if(isTerminal(state)){showResult();return;}
+  scheduleAI();
+}
+
+function scheduleAI(){
+  if(!state||isTerminal(state)||aiRunning) return;
+  const cp=state.current;
+  const isAI=(mode==='pva0'&&cp===1)||(mode==='pva1'&&cp===0);
+  if(!isAI) return;
+  aiRunning=true;
+  document.getElementById('aiThinking').classList.add('on');
+  const baseMs=parseFloat(document.getElementById('aiTime').value)*1000;
+  const lv=document.getElementById('aiLevel').value;
+  const tms=lv==='easy'?Math.min(400,baseMs):lv==='hard'?baseMs*1.4:baseMs;
+  setTimeout(()=>{
+    if(!state||isTerminal(state)){
+      aiRunning=false;document.getElementById('aiThinking').classList.remove('on');return;
+    }
+    const{move}=mcts(state,tms);
+    aiRunning=false;
+    document.getElementById('aiThinking').classList.remove('on');
+    if(move) doMove(move[0],move[1]);
+  },30);
+}
+
+function showResult(){
+  if(!state) return;
+  const w=winner(state);
+  document.getElementById('mS0').textContent=state.scores[0];
+  document.getElementById('mS1').textContent=state.scores[1];
+  document.getElementById('modalWinner').textContent=
+    w===-1?'🤝 雙方各得66分，和局！':`🏆 ${['玩家一','玩家二'][w]} 獲勝！`;
+  document.getElementById('modalOverlay').classList.add('on');
+  addLog(`🏁 結束 玩家一:${state.scores[0]} 玩家二:${state.scores[1]}`);
+}
+
+function setMode(btn){
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  mode=btn.dataset.mode;
+  newGame();
+}
+
+function undo(){
+  if(aiRunning||!history.length||!state) return;
+  const steps=(mode==='pvp')?1:2;
+  for(let i=0;i<steps&&history.length;i++){
+    const h=history.pop();
+    state=h.snap;
+    lastMove=history.length?[history[history.length-1].r,history[history.length-1].c]:null;
+  }
+  updateUI();draw();
+  addLog('↩ 悔棋');
+}
+
+function toggleEdit(){
+  editMode=!editMode;
+  document.getElementById('editToolbar').classList.toggle('on',editMode);
+  document.getElementById('editBtn').classList.toggle('on',editMode);
+}
+
+function finishEdit(){
+  editMode=false;
+  document.getElementById('editToolbar').classList.remove('on');
+  document.getElementById('editBtn').classList.remove('on');
+  if(!state) return;
+  recomputeCaptures(state);
+  history=[];
+  updateUI();draw();
+  addLog('✏ 完成局面編輯');
+}
+
+function showHelp(){
+  document.getElementById('help-overlay').classList.add('show');
+}
+function closeHelp(){
+  document.getElementById('help-overlay').classList.remove('show');
+}
+
+// 點擊遮罩關閉
+document.getElementById('help-overlay')?.addEventListener('click',function(e){
+  if(e.target===this) closeHelp();
+});
+
+function toggleAnalysis(){
+  if(!state) return;
+  if(analysisMode){
+    analysisMode=false;aiHeatmap=null;
+    document.getElementById('analyzeBtn').classList.remove('on');
+    document.getElementById('analysisInfo').classList.remove('on');
+    draw();return;
+  }
+  if(isTerminal(state)) return;
+  analysisMode=true;
+  document.getElementById('analyzeBtn').classList.add('on');
+  document.getElementById('analysisInfo').classList.add('on');
+  document.getElementById('aiThinking').classList.add('on');
+  const tms=parseFloat(document.getElementById('aiTime').value)*1000;
+  setTimeout(()=>{
+    if(!state){document.getElementById('aiThinking').classList.remove('on');return;}
+    const{heatmap}=mcts(state,tms);
+    aiHeatmap=heatmap;
+    document.getElementById('aiThinking').classList.remove('on');
+    draw();
+  },30);
+}
+
+// ── Events ──
+canvas.addEventListener('click',e=>{
+  if(!state) return;
+  const rect=canvas.getBoundingClientRect();
+  const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+  const pos=xyToGrid((e.clientX-rect.left)*sx,(e.clientY-rect.top)*sy);
+  if(!pos) return;
+  const[r,c]=pos;
+
+  if(editMode){
+    const val=parseInt(document.querySelector('input[name=ep]:checked').value);
+    state.board[r][c]=(state.board[r][c]===val)?-1:val;
+    state.stonesLeft=state.board.flat().filter(v=>v===-1).length;
+    draw();return;
+  }
+
+  if(isTerminal(state)||aiRunning) return;
+  const cp=state.current;
+  const human=(mode==='pvp')||(mode==='pva0'&&cp===0)||(mode==='pva1'&&cp===1);
+  if(!human) return;
+  doMove(r,c);
+});
+
+canvas.addEventListener('mousemove',e=>{
+  if(!analysisMode||!aiHeatmap||!state) return;
+  const rect=canvas.getBoundingClientRect();
+  const sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+  const pos=xyToGrid((e.clientX-rect.left)*sx,(e.clientY-rect.top)*sy);
+  if(pos){
+    const h=aiHeatmap[pos[0]*7+pos[1]];
+    canvas.title=h?`(${pos[0]},${pos[1]}) 訪問:${h.visits} 勝率:${(h.winRate*100).toFixed(1)}%`:'';
+  }else canvas.title='';
+});
+
+// ── Init ──
+mode='pvp';
+window.addEventListener('resize',resize);
+window.addEventListener('load',()=>{resize();newGame();});
+</script>
+</body>
+</html>

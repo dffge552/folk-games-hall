@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>虎雞蟲棒棋</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Ma+Shan+Zheng&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#1a0e05;min-height:100vh;
+  font-family:'Noto Serif TC',serif;
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 8px;color:#2c1810;
+}
+h1{
+  font-family:'Ma Shan Zheng',cursive;
+  font-size:clamp(1.5rem,4vw,2.4rem);
+  color:#e8c98a;letter-spacing:0.2em;
+  text-shadow:0 2px 10px rgba(0,0,0,0.8);margin-bottom:10px;
+}
+.mode-bar{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:10px;}
+.mode-btn{
+  background:#3a2010;border:1.5px solid #7a5230;
+  color:#e8c98a;font-family:'Noto Serif TC',serif;
+  font-size:0.82rem;padding:6px 13px;border-radius:4px;
+  cursor:pointer;transition:all 0.2s;letter-spacing:0.04em;
+}
+.mode-btn:hover{background:#5a3820;border-color:#c8a060;}
+.mode-btn.active{background:#7a1010;border-color:#c04040;color:#ffe8e8;}
+.status-bar{
+  background:#f4ead0;border:1.5px solid #7a5230;border-radius:6px;
+  padding:6px 20px;font-size:0.9rem;font-weight:600;
+  margin-bottom:10px;min-width:260px;text-align:center;
+  box-shadow:0 2px 8px rgba(0,0,0,0.4);
+}
+.main-layout{display:flex;gap:14px;align-items:flex-start;justify-content:center;flex-wrap:wrap;}
+.board-wrap{
+  background:linear-gradient(145deg,#d4a96a,#b8864a,#c8966a);
+  border:6px solid #5a3510;border-radius:8px;padding:26px;
+  box-shadow:0 0 0 2px #8a5520,0 8px 32px rgba(0,0,0,0.6);
+}
+#board-svg{display:block;cursor:pointer;}
+.side-panel{display:flex;flex-direction:column;gap:10px;width:200px;}
+.panel-box{
+  background:linear-gradient(135deg,#f4ead0,#e8d5a0);
+  border:1.5px solid #7a5230;border-radius:6px;
+  padding:12px;box-shadow:0 2px 8px rgba(0,0,0,0.3);
+}
+.panel-box h3{
+  font-family:'Ma Shan Zheng',cursive;font-size:1rem;color:#8b1a1a;
+  margin-bottom:8px;border-bottom:1px solid #7a5230;
+  padding-bottom:4px;letter-spacing:0.1em;
+}
+.ctrl-btn{
+  display:block;width:100%;background:#3a2010;
+  border:1px solid #7a5230;color:#e8c98a;
+  font-family:'Noto Serif TC',serif;font-size:0.82rem;
+  padding:7px;border-radius:4px;cursor:pointer;
+  transition:all 0.2s;margin-top:5px;
+}
+.ctrl-btn:hover{background:#5a3820;}
+.ctrl-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.ctrl-btn.red{background:#6b1010;border-color:#8b2020;}
+.edit-pieces{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px;}
+.edit-piece-btn{
+  border:1.5px solid transparent;border-radius:4px;padding:4px 2px;
+  cursor:pointer;font-family:'Noto Serif TC',serif;font-size:0.72rem;
+  display:flex;flex-direction:column;align-items:center;gap:2px;transition:all 0.15s;
+}
+.edit-piece-btn.sel{border-color:#8b1a1a;box-shadow:0 0 6px rgba(139,26,26,0.5);}
+.edit-circle{
+  width:26px;height:26px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.82rem;font-weight:700;
+}
+#analysis-box{font-size:0.78rem;line-height:1.65;color:#2c1810;min-height:70px;}
+.ai-hl{color:#8b1a1a;font-weight:700;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+.thinking{animation:pulse 1s infinite;color:#8b1a1a;}
+#win-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.78);z-index:100;
+  align-items:center;justify-content:center;
+}
+#win-overlay.show{display:flex;}
+.win-box{
+  background:linear-gradient(135deg,#f4ead0,#e8d5a0);
+  border:4px solid #7a5230;border-radius:12px;
+  padding:38px 56px;text-align:center;
+  box-shadow:0 8px 40px rgba(0,0,0,0.6);
+}
+.win-box h2{font-family:'Ma Shan Zheng',cursive;font-size:2.4rem;color:#8b1a1a;margin-bottom:10px;letter-spacing:0.15em;}
+.win-box p{font-size:1rem;color:#2c1810;margin-bottom:18px;}
+
+#help-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.85);z-index:200;
+  align-items:center;justify-content:center;
+}
+#help-overlay.show{display:flex;}
+.help-box{
+  background:linear-gradient(135deg,#f4ead0,#e8d5a0);
+  border:4px solid #7a5230;border-radius:12px;
+  padding:28px 32px;max-width:460px;width:90%;
+  max-height:80vh;overflow-y:auto;
+  box-shadow:0 8px 40px rgba(0,0,0,0.6);
+}
+.help-box h2{
+  font-family:'Ma Shan Zheng',cursive;
+  font-size:1.8rem;color:#8b1a1a;
+  margin-bottom:12px;text-align:center;
+}
+.help-box h3{
+  font-size:0.95rem;color:#8b1a1a;
+  margin:16px 0 6px 0;border-left:3px solid #c0392b;
+  padding-left:8px;
+}
+.help-box p,.help-box ul{
+  font-size:0.8rem;color:#2c1810;line-height:1.65;
+  margin:6px 0;padding-left:20px;
+}
+.help-box ul li{margin:4px 0;}
+.close-help{
+  display:block;margin:20px auto 0 auto;
+  background:#8b1a1a;border:none;color:#f4ead0;
+  padding:8px 28px;border-radius:30px;
+  font-family:'Noto Serif TC',serif;font-size:0.85rem;
+  cursor:pointer;
+}
+.close-help:hover{background:#6b1010;}
+
+</style>
+</head>
+<body>
+<h1>虎　雞　蟲　棒　棋</h1>
+
+<div class="mode-bar">
+  <button class="mode-btn active" onclick="setMode('pvp')">雙人對戰</button>
+  <button class="mode-btn" onclick="setMode('pva-r')">人(紅) vs AI</button>
+  <button class="mode-btn" onclick="setMode('pva-w')">人(白) vs AI</button>
+  <button class="mode-btn" onclick="setMode('edit')">編輯局面</button>
+</div>
+
+<div class="status-bar" id="status">紅方先走</div>
+
+<div class="main-layout">
+  <div class="board-wrap">
+    <svg id="board-svg" width="360" height="360" viewBox="0 0 360 360"></svg>
+  </div>
+  <div class="side-panel">
+
+    <div class="panel-box">
+      <h3>循環相克</h3>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <div style="display:flex;align-items:center;gap:7px;font-size:0.8rem;">
+          <div style="width:22px;height:22px;border-radius:50%;background:#c0392b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;flex-shrink:0;">虎</div>吃 雞
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;font-size:0.8rem;">
+          <div style="width:22px;height:22px;border-radius:50%;background:#c0392b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;flex-shrink:0;">雞</div>吃 蟲
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;font-size:0.8rem;">
+          <div style="width:22px;height:22px;border-radius:50%;background:#c0392b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;flex-shrink:0;">蟲</div>吃 棒
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;font-size:0.8rem;">
+          <div style="width:22px;height:22px;border-radius:50%;background:#c0392b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;flex-shrink:0;">棒</div>吃 虎
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:0.71rem;color:#5a3510;line-height:1.55;">
+        ・走到對方棋子格才吃子<br>
+        ・不相克或己方棋子=攔路<br>
+        ・不能走回己方大本營<br>
+        ・進入對方大本營即勝
+      </div>
+    </div>
+
+    <div class="panel-box" id="edit-panel" style="display:none;">
+      <h3>編輯局面</h3>
+      <div style="font-size:0.7rem;color:#5a3510;margin-bottom:6px;">選棋子 → 點棋盤放置；點已有棋子移除</div>
+      <div style="font-size:0.74rem;font-weight:600;margin-bottom:3px;color:#8b1a1a;">紅方棋子</div>
+      <div class="edit-pieces" id="edit-red-pieces"></div>
+      <div style="font-size:0.74rem;font-weight:600;margin-bottom:3px;">白方棋子</div>
+      <div class="edit-pieces" id="edit-white-pieces"></div>
+      <button class="ctrl-btn" onclick="clearBoard()">清空棋盤</button>
+      <button class="ctrl-btn" onclick="resetToDefault()">恢復初始</button>
+      <button class="ctrl-btn" style="background:#1a5a1a;border-color:#2a8a2a;" onclick="startFromEdit()">從此局面開始</button>
+    </div>
+
+    <div class="panel-box" id="ai-panel">
+      <h3>AI 分析</h3>
+      <div id="analysis-box">─ 等待走棋 ─</div>
+      <button class="ctrl-btn" id="analyze-btn" onclick="doAnalyze()">分析當前局面</button>
+    </div>
+
+    <div class="panel-box">
+      <h3>操作</h3>
+      <button class="ctrl-btn red" onclick="newGame()">重新開始</button>
+      <button class="ctrl-btn" onclick="showHelp()">📖 遊戲說明</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="win-overlay">
+  <div class="win-box">
+    <h2 id="win-title">紅方勝！</h2>
+    <p>棋子成功進入對方大本營</p>
+    <button class="ctrl-btn" onclick="newGame()">再來一局</button>
+  </div>
+</div>
+
+<div id="help-overlay">
+  <div class="help-box">
+    <h2>🐅 虎雞蟲棒棋</h2>
+    <h3>🎯 遊戲目標</h3>
+    <p>設法讓己方棋子「走進」對方的「大本營（家）」即獲勝。</p>
+
+    <h3>🔄 循環相剋規則</h3>
+    <ul>
+      <li><strong style="color:#c0392b;">🐅 虎</strong> 吃 <strong>🐔 雞</strong></li>
+      <li><strong style="color:#c0392b;">🐔 雞</strong> 吃 <strong>🐛 蟲</strong></li>
+      <li><strong style="color:#c0392b;">🐛 蟲</strong> 吃 <strong>🥢 棒</strong></li>
+      <li><strong style="color:#c0392b;">🥢 棒</strong> 吃 <strong>🐅 虎</strong></li>
+    </ul>
+    <p>只有走到對方棋子所在的格子，且符合相剋關係時，才能吃掉對方。若不符合相剋，該格有棋子則不可走入。</p>
+
+    <h3>🚶 移動方式</h3>
+    <p>棋子沿棋盤上的「線」移動一格（包括直線、橫線、斜線）。</p>
+    <p>❌ 不可走回己方大本營（紅色／灰色「家」格）。</p>
+
+    <h3>🎮 操作方式</h3>
+    <ul>
+      <li>點擊己方棋子選中 → 再點擊合法移動點（綠圈為普通移動，紅圈為吃子）</li>
+      <li>模式選擇：雙人對戰 / 人(紅) vs AI / 人(白) vs AI / 編輯局面</li>
+      <li>「AI 分析」按鈕：建議最佳走法，並在棋盤上顯示箭頭</li>
+      <li>編輯模式可自訂擺棋，每種棋子雙方各限一枚</li>
+    </ul>
+
+    <h3>✨ 小提示</h3>
+    <p>紅方棋子位於棋盤上方，白方在下方（人vs紅AI模式棋盤會翻轉）。先進入對方大本營者獲勝！</p>
+    <button class="close-help" onclick="closeHelp()">開始對弈</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// 常數與座標
+// ════════════════════════════════════════
+const ROWS=7,COLS=7,CELL=50,PAD=30;
+const CAPTURES={虎:'雞',雞:'蟲',蟲:'棒',棒:'虎'};
+const PIECE_TYPES=['虎','雞','蟲','棒'];
+const SVG_SIZE=360;
+
+// flipView=true 時，row 0 顯示在下方（紅方視角）
+let flipView=false;
+
+function nid(r,c){return r*COLS+c;}
+function coord(id){return[Math.floor(id/COLS),id%COLS];}
+function px(c){return PAD+c*CELL;}
+function py(r){return flipView? PAD+(ROWS-1-r)*CELL : PAD+r*CELL;}
+
+// ════════════════════════════════════════
+// 鄰接表：水平 + 垂直 + 2條大對角 + 4條短斜線
+// ════════════════════════════════════════
+function buildAdj(){
+  const adj=Array.from({length:49},()=>new Set());
+  function addE(a,b){adj[a].add(b);adj[b].add(a);}
+
+  // 水平
+  for(let r=0;r<ROWS;r++)
+    for(let c=0;c<COLS-1;c++) addE(nid(r,c),nid(r,c+1));
+  // 垂直
+  for(let c=0;c<COLS;c++)
+    for(let r=0;r<ROWS-1;r++) addE(nid(r,c),nid(r+1,c));
+
+  // 大對角線 左上→右下 (0,0)至(6,6)
+  for(let i=0;i<6;i++) addE(nid(i,i),nid(i+1,i+1));
+  // 大對角線 右上→左下 (0,6)至(6,0)
+  for(let i=0;i<6;i++) addE(nid(i,6-i),nid(i+1,5-i));
+
+  // 短斜線1: (0,2)→(1,1)→(2,0)
+  addE(nid(0,2),nid(1,1)); addE(nid(1,1),nid(2,0));
+  // 短斜線2: (0,4)→(1,5)→(2,6)
+  addE(nid(0,4),nid(1,5)); addE(nid(1,5),nid(2,6));
+  // 短斜線3: (6,2)→(5,1)→(4,0)
+  addE(nid(6,2),nid(5,1)); addE(nid(5,1),nid(4,0));
+  // 短斜線4: (6,4)→(5,5)→(4,6)
+  addE(nid(6,4),nid(5,5)); addE(nid(5,5),nid(4,6));
+
+  return adj.map(s=>[...s]);
+}
+const ADJ=buildAdj();
+
+// 預計算斜線邊集合（用來畫圖）
+function buildDiagEdges(){
+  const s=new Set();
+  function addD(a,b){s.add(Math.min(a,b)+'_'+Math.max(a,b));}
+  for(let i=0;i<6;i++) addD(nid(i,i),nid(i+1,i+1));
+  for(let i=0;i<6;i++) addD(nid(i,6-i),nid(i+1,5-i));
+  addD(nid(0,2),nid(1,1)); addD(nid(1,1),nid(2,0));
+  addD(nid(0,4),nid(1,5)); addD(nid(1,5),nid(2,6));
+  addD(nid(6,2),nid(5,1)); addD(nid(5,1),nid(4,0));
+  addD(nid(6,4),nid(5,5)); addD(nid(5,5),nid(4,6));
+  return s;
+}
+const DIAG_EDGES=buildDiagEdges();
+
+const RED_HOME=nid(0,3);
+const WHT_HOME=nid(6,3);
+const INIT_RED={[nid(0,1)]:'虎',[nid(0,2)]:'雞',[nid(0,4)]:'蟲',[nid(0,5)]:'棒'};
+const INIT_WHT={[nid(6,1)]:'虎',[nid(6,2)]:'雞',[nid(6,4)]:'蟲',[nid(6,5)]:'棒'};
+
+// ════════════════════════════════════════
+// 遊戲狀態
+// ════════════════════════════════════════
+let mode='pvp';
+let pieces={};
+let turn='R';
+let selected=null;
+let legalMoves=[];
+let gameOver=false;
+let aiThinking=false;
+let hlFrom=null,hlTo=null;
+let editPlayer='R',editType='虎';
+
+function initPieces(){
+  pieces={};
+  for(const[id,t]of Object.entries(INIT_RED)) pieces[+id]={player:'R',type:t};
+  for(const[id,t]of Object.entries(INIT_WHT)) pieces[+id]={player:'W',type:t};
+}
+function cloneP(p){return JSON.parse(JSON.stringify(p));}
+function opp(p){return p==='R'?'W':'R';}
+function myHome(p){return p==='R'?RED_HOME:WHT_HOME;}
+function oppHome(p){return p==='R'?WHT_HOME:RED_HOME;}
+function canCap(att,def){return CAPTURES[att]===def;}
+
+// ════════════════════════════════════════
+// 規則
+// ════════════════════════════════════════
+function getLegal(p,player){
+  const moves=[];
+  const op=opp(player);
+  const mh=myHome(player);
+  for(const[idStr,piece]of Object.entries(p)){
+    if(piece.player!==player) continue;
+    const from=+idStr;
+    for(const to of ADJ[from]){
+      if(to===mh) continue;
+      const occ=p[to];
+      if(!occ){
+        moves.push({from,to,cap:false});
+      } else if(occ.player===op&&canCap(piece.type,occ.type)){
+        moves.push({from,to,cap:true});
+      }
+    }
+  }
+  return moves;
+}
+
+function applyMove(p,m){
+  const np=cloneP(p);
+  np[m.to]=np[m.from];
+  delete np[m.from];
+  return np;
+}
+
+function checkWinner(p){
+  if(p[WHT_HOME]?.player==='R') return 'R';
+  if(p[RED_HOME]?.player==='W') return 'W';
+  return null;
+}
+
+// ════════════════════════════════════════
+// Alpha-Beta 搜尋
+// ════════════════════════════════════════
+const AB_DEPTH=5;
+
+function evaluate(p,forPlayer){
+  const w=checkWinner(p);
+  if(w===forPlayer) return 100000;
+  if(w) return -100000;
+
+  let score=0;
+  const op=opp(forPlayer);
+  const oh=oppHome(forPlayer);
+  const mh=myHome(forPlayer);
+  const[ohr,ohc]=coord(oh);
+  const[mhr,mhc]=coord(mh);
+
+  for(const[idStr,piece]of Object.entries(p)){
+    const id=+idStr;
+    const[r,c]=coord(id);
+    if(piece.player===forPlayer){
+      score+=20;
+      // 逼近對方大本營
+      const distOpp=Math.abs(r-ohr)+Math.abs(c-ohc);
+      score+=(12-distOpp)*3;
+      if(distOpp===1) score+=40; // 緊逼加分
+      // 被威脅扣分（相克對方在旁）
+      for(const nb of ADJ[id]){
+        const nbP=p[nb];
+        if(nbP&&nbP.player===op&&canCap(nbP.type,piece.type)) score-=28;
+      }
+      // 可吃對方加分
+      for(const nb of ADJ[id]){
+        const nbP=p[nb];
+        if(nbP&&nbP.player===op&&canCap(piece.type,nbP.type)) score+=18;
+      }
+    } else {
+      score-=20;
+      // 對方逼近己方大本營
+      const distMine=Math.abs(r-mhr)+Math.abs(c-mhc);
+      score-=(12-distMine)*2;
+      if(distMine===1) score-=35;
+    }
+  }
+  return score;
+}
+
+function alphabeta(p,depth,alpha,beta,player,root){
+  const w=checkWinner(p);
+  if(w===root) return 100000-depth;
+  if(w) return -100000+depth;
+  if(depth===0) return evaluate(p,root);
+
+  const moves=getLegal(p,player);
+  if(!moves.length) return evaluate(p,root);
+  // 吃子優先排序（剪枝效率）
+  moves.sort((a,b)=>b.cap-a.cap);
+
+  if(player===root){
+    let best=-Infinity;
+    for(const m of moves){
+      const v=alphabeta(applyMove(p,m),depth-1,alpha,beta,opp(player),root);
+      if(v>best) best=v;
+      if(v>alpha) alpha=v;
+      if(alpha>=beta) break;
+    }
+    return best;
+  } else {
+    let best=Infinity;
+    for(const m of moves){
+      const v=alphabeta(applyMove(p,m),depth-1,alpha,beta,opp(player),root);
+      if(v<best) best=v;
+      if(v<beta) beta=v;
+      if(alpha>=beta) break;
+    }
+    return best;
+  }
+}
+
+function getBestMove(p,player){
+  const moves=getLegal(p,player);
+  if(!moves.length) return null;
+  if(moves.length===1) return moves[0];
+  moves.sort((a,b)=>b.cap-a.cap);
+  let best=null,bestV=-Infinity;
+  for(const m of moves){
+    const v=alphabeta(applyMove(p,m),AB_DEPTH-1,-Infinity,Infinity,opp(player),player);
+    if(v>bestV){bestV=v;best=m;}
+  }
+  return best;
+}
+
+// ════════════════════════════════════════
+// 繪製棋盤
+// ════════════════════════════════════════
+const svg=document.getElementById('board-svg');
+
+function se(tag,attrs){
+  const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const[k,v]of Object.entries(attrs)) el.setAttribute(k,v);
+  return el;
+}
+
+function drawBoard(){
+  svg.innerHTML='';
+
+  // 水平線
+  for(let r=0;r<ROWS;r++)
+    for(let c=0;c<COLS-1;c++)
+      svg.appendChild(se('line',{x1:px(c),y1:py(r),x2:px(c+1),y2:py(r),stroke:'#5a3510','stroke-width':'1.2'}));
+  // 垂直線
+  for(let c=0;c<COLS;c++)
+    for(let r=0;r<ROWS-1;r++)
+      svg.appendChild(se('line',{x1:px(c),y1:py(r),x2:px(c),y2:py(r+1),stroke:'#5a3510','stroke-width':'1.2'}));
+
+  // 對角線（只畫預計算的6條）
+  for(const key of DIAG_EDGES){
+    const[a,b]=key.split('_').map(Number);
+    const[ar,ac]=coord(a);
+    const[br,bc]=coord(b);
+    svg.appendChild(se('line',{x1:px(ac),y1:py(ar),x2:px(bc),y2:py(br),stroke:'#5a3510','stroke-width':'1.2'}));
+  }
+
+  // 大本營
+  drawHome(RED_HOME,'#8b1a1a');
+  drawHome(WHT_HOME,'#4a4a4a');
+
+  // 合法走法高亮
+  if(selected!==null){
+    for(const m of legalMoves){
+      if(m.from!==selected) continue;
+      const[tr,tc]=coord(m.to);
+      svg.appendChild(se('circle',{
+        cx:px(tc),cy:py(tr),r:11,
+        fill:m.cap?'rgba(180,30,30,0.32)':'rgba(30,130,30,0.32)',
+        stroke:m.cap?'#8b1a1a':'#1a6a1a','stroke-width':'1.8'
+      }));
+    }
+  }
+
+  // AI 分析箭頭
+  if(hlFrom!==null&&hlTo!==null){
+    const[fr,fc]=coord(hlFrom);
+    const[tr,tc]=coord(hlTo);
+    svg.appendChild(se('line',{x1:px(fc),y1:py(fr),x2:px(tc),y2:py(tr),stroke:'#c0392b','stroke-width':'3','stroke-dasharray':'6,3',opacity:'0.9'}));
+    svg.appendChild(se('circle',{cx:px(tc),cy:py(tr),r:14,fill:'rgba(192,57,43,0.18)',stroke:'#c0392b','stroke-width':'2.2'}));
+  }
+
+  // 棋子
+  for(const[idStr,piece]of Object.entries(pieces)){
+    const id=+idStr;
+    const[r,c]=coord(id);
+    drawPiece(px(c),py(r),piece.player,piece.type,id===selected);
+  }
+}
+
+function drawHome(id,color){
+  const[r,c]=coord(id);
+  const x=px(c),y=py(r),s=13;
+  svg.appendChild(se('rect',{x:x-s,y:y-s,width:s*2,height:s*2,fill:'none',stroke:color,'stroke-width':'2',rx:'3',opacity:'0.8'}));
+  const t=se('text',{x,y:y+5,'text-anchor':'middle','font-size':'11','font-family':'Ma Shan Zheng,serif',fill:color,opacity:'0.75'});
+  t.textContent='家';
+  svg.appendChild(t);
+}
+
+function drawPiece(x,y,player,type,isSel){
+  const R=17;
+  const bg=player==='R'?'#c0392b':'#f0ece0';
+  const ring=player==='R'?'#7a1010':'#7a6040';
+  const textFill=player==='R'?'#ffffff':'#1a0a00';
+  if(isSel) svg.appendChild(se('circle',{cx:x,cy:y,r:R+5,fill:'rgba(255,210,40,0.28)',stroke:'#f0c020','stroke-width':'2'}));
+  svg.appendChild(se('circle',{cx:x+2,cy:y+2,r:R,fill:'rgba(0,0,0,0.2)'}));
+  svg.appendChild(se('circle',{cx:x,cy:y,r:R,fill:bg,stroke:ring,'stroke-width':'2.5'}));
+  svg.appendChild(se('circle',{cx:x,cy:y,r:R-5,fill:'none',stroke:textFill,'stroke-width':'0.7',opacity:'0.35'}));
+  const t=se('text',{x,y:y+5,'text-anchor':'middle','font-size':'14','font-family':'Ma Shan Zheng,serif',fill:textFill,'font-weight':'700'});
+  t.textContent=type;
+  svg.appendChild(t);
+}
+
+// ════════════════════════════════════════
+// 點擊
+// ════════════════════════════════════════
+svg.addEventListener('click',e=>{
+  if(gameOver||aiThinking) return;
+  const rect=svg.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(SVG_SIZE/rect.width);
+  const my=(e.clientY-rect.top)*(SVG_SIZE/rect.height);
+  let bestId=-1,bestD=999;
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const d=Math.hypot(mx-px(c),my-py(r));
+    if(d<bestD){bestD=d;bestId=nid(r,c);}
+  }
+  if(bestD>CELL*0.52) return;
+  if(mode==='edit'){handleEditClick(bestId);return;}
+  handleGameClick(bestId);
+});
+
+function handleGameClick(id){
+  const piece=pieces[id];
+  if(selected===null){
+    if(!piece||piece.player!==turn) return;
+    selected=id;legalMoves=getLegal(pieces,turn);drawBoard();
+    return;
+  }
+  const move=legalMoves.find(m=>m.from===selected&&m.to===id);
+  if(move){executeMove(move);return;}
+  if(piece&&piece.player===turn){
+    selected=id;legalMoves=getLegal(pieces,turn);drawBoard();return;
+  }
+  selected=null;legalMoves=[];drawBoard();
+}
+
+function executeMove(move){
+  hlFrom=null;hlTo=null;
+  pieces=applyMove(pieces,move);
+  selected=null;legalMoves=[];
+  const w=checkWinner(pieces);
+  if(w){drawBoard();setTimeout(()=>showWin(w),300);return;}
+  turn=opp(turn);
+  updateStatus();drawBoard();
+  if(isAITurn()) setTimeout(doAIMove,150);
+}
+
+function isAITurn(){
+  return(mode==='pva-r'&&turn==='W')||(mode==='pva-w'&&turn==='R');
+}
+
+function doAIMove(){
+  if(gameOver) return;
+  aiThinking=true;
+  document.getElementById('status').innerHTML='<span class="thinking">AI 思考中…</span>';
+  const player=turn;
+  setTimeout(()=>{
+    const move=getBestMove(pieces,player);
+    aiThinking=false;
+    if(!move){turn=opp(turn);updateStatus();drawBoard();return;}
+    executeMove(move);
+  },20);
+}
+
+// ════════════════════════════════════════
+// 分析
+// ════════════════════════════════════════
+function doAnalyze(){
+  if(gameOver||aiThinking) return;
+  const box=document.getElementById('analysis-box');
+  box.innerHTML='<span class="thinking">分析中…</span>';
+  document.getElementById('analyze-btn').disabled=true;
+  setTimeout(()=>{
+    const move=getBestMove(pieces,turn);
+    document.getElementById('analyze-btn').disabled=false;
+    if(!move){box.innerHTML='<span class="ai-hl">無合法走法</span>';return;}
+    const[fr,fc]=coord(move.from);
+    const[tr,tc]=coord(move.to);
+    const piece=pieces[move.from];
+    hlFrom=move.from;hlTo=move.to;
+    drawBoard();
+    box.innerHTML=`<span class="ai-hl">建議走法</span><br>
+      ${piece.player==='R'?'紅':'白'}<b>${piece.type}</b><br>
+      (${fr},${fc}) → (${tr},${tc})<br>
+      ${move.cap?'<span class="ai-hl">★ 可吃對方棋子！</span>':'普通移動'}`;
+  },20);
+}
+
+// ════════════════════════════════════════
+// 編輯模式
+// ════════════════════════════════════════
+function handleEditClick(id){
+  if(pieces[id]){delete pieces[id];drawBoard();return;}
+  if(id===RED_HOME||id===WHT_HOME) return;
+  const cnt=Object.values(pieces).filter(p=>p.player===editPlayer&&p.type===editType).length;
+  if(cnt>=1){alert('每種棋子只能有一枚');return;}
+  pieces[id]={player:editPlayer,type:editType};
+  drawBoard();
+}
+
+function buildEditPanel(){
+  const mk=(player,type)=>{
+    const bg=player==='R'?'#c0392b':'#f0ece0';
+    const tc=player==='R'?'#fff':'#1a0a00';
+    const wrap=player==='R'?'#2c1010':'#e8d5a0';
+    const el=document.createElement('button');
+    el.className='edit-piece-btn';
+    el.style.background=wrap;
+    el.dataset.player=player;el.dataset.type=type;
+    el.innerHTML=`<div class="edit-circle" style="background:${bg};color:${tc}">${type}</div><span style="font-size:0.68rem;color:${player==='R'?'#e8c0a0':'#2c1810'}">${player==='R'?'紅':'白'}${type}</span>`;
+    el.onclick=()=>{editPlayer=player;editType=type;updEditBtns();};
+    return el;
+  };
+  const rp=document.getElementById('edit-red-pieces');
+  const wp=document.getElementById('edit-white-pieces');
+  rp.innerHTML='';wp.innerHTML='';
+  for(const t of PIECE_TYPES){rp.appendChild(mk('R',t));wp.appendChild(mk('W',t));}
+  updEditBtns();
+}
+function updEditBtns(){
+  document.querySelectorAll('.edit-piece-btn').forEach(b=>{
+    b.classList.toggle('sel',b.dataset.player===editPlayer&&b.dataset.type===editType);
+  });
+}
+function clearBoard(){pieces={};drawBoard();}
+function resetToDefault(){initPieces();drawBoard();}
+function startFromEdit(){
+  const rc=Object.values(pieces).filter(p=>p.player==='R').length;
+  const wc=Object.values(pieces).filter(p=>p.player==='W').length;
+  if(!rc||!wc){alert('雙方至少各需一枚棋子');return;}
+  document.getElementById('edit-panel').style.display='none';
+  document.getElementById('ai-panel').style.display='block';
+  mode='pvp';
+  document.querySelectorAll('.mode-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+  turn='R';selected=null;legalMoves=[];gameOver=false;hlFrom=null;hlTo=null;
+  flipView=false;updateStatus();drawBoard();
+}
+
+// ════════════════════════════════════════
+// 模式 / 遊戲控制
+// ════════════════════════════════════════
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.mode-btn').forEach((b,i)=>{
+    b.classList.toggle('active',['pvp','pva-r','pva-w','edit'][i]===m);
+  });
+  document.getElementById('edit-panel').style.display=m==='edit'?'block':'none';
+  document.getElementById('ai-panel').style.display=m==='edit'?'none':'block';
+  if(m==='edit'){
+    buildEditPanel();initPieces();flipView=false;drawBoard();
+    document.getElementById('status').textContent='編輯模式';
+  } else {
+    newGame();
+  }
+}
+
+function newGame(){
+  initPieces();
+  turn='R';selected=null;legalMoves=[];gameOver=false;aiThinking=false;
+  hlFrom=null;hlTo=null;
+  // 人(紅) vs AI：紅方視角在下，棋盤翻轉
+  flipView=(mode==='pva-r');
+  document.getElementById('win-overlay').classList.remove('show');
+  updateStatus();drawBoard();
+  if(isAITurn()) setTimeout(doAIMove,400);
+}
+
+function updateStatus(){
+  if(gameOver) return;
+  const who=turn==='R'?'紅方':'白方';
+  const ai=isAITurn()?' (AI)':'';
+  document.getElementById('status').textContent=`${who}${ai} 回合`;
+}
+
+function showWin(w){
+  gameOver=true;
+  document.getElementById('win-title').textContent=(w==='R'?'紅方':'白方')+'勝利！';
+  document.getElementById('win-overlay').classList.add('show');
+}
+
+
+function showHelp(){
+  document.getElementById('help-overlay').classList.add('show');
+}
+function closeHelp(){
+  document.getElementById('help-overlay').classList.remove('show');
+}
+
+// 點擊遮罩關閉
+document.getElementById('help-overlay')?.addEventListener('click',function(e){
+  if(e.target===this) closeHelp();
+});
+
+// 啟動
+initPieces();updateStatus();drawBoard();
+</script>
+</body>
+</html>

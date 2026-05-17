@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>斗蛇棋</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0f0e0c;
+    --panel: #1a1814;
+    --border: #3a3228;
+    --gold: #c9a84c;
+    --gold-dim: #7a6330;
+    --red: #e05c3a;
+    --red-dim: #8a3520;
+    --blue: #4a9edd;
+    --blue-dim: #2a5a88;
+    --empty: #2a2520;
+    --text: #e8dcc8;
+    --text-dim: #7a6f5f;
+    --highlight: #f0c060;
+    --capture: #e04040;
+    --move: #60d080;
+    --best: #ffe040;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif TC', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(201,168,76,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(74,158,221,0.04) 0%, transparent 50%);
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(201,168,76,0.4);
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 0.2em;
+    margin-bottom: 20px;
+  }
+
+  .main-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ── CONTROL PANEL ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    width: 220px;
+  }
+
+  .panel-title {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mode-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--empty);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .btn.active { background: var(--gold-dim); border-color: var(--gold); color: var(--bg); font-weight: 700; }
+  .btn.danger { border-color: var(--red-dim); }
+  .btn.danger:hover { background: var(--red-dim); border-color: var(--red); color: #fff; }
+  .btn.action { border-color: var(--gold-dim); color: var(--gold-dim); }
+  .btn.action:hover { background: var(--gold-dim); color: var(--bg); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .select-row {
+    margin-bottom: 10px;
+  }
+  .select-row label {
+    display: block;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  select {
+    width: 100%;
+    background: var(--empty);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.75rem;
+    padding: 5px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: var(--gold-dim); }
+
+  /* ── SCOREBOARD ── */
+  .scoreboard {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+  .score-box {
+    flex: 1;
+    background: var(--empty);
+    border-radius: 6px;
+    padding: 10px 8px;
+    text-align: center;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .score-box.active-turn { border-color: var(--gold); }
+  .score-box.p1 .score-label { color: var(--red); }
+  .score-box.p2 .score-label { color: var(--blue); }
+  .score-label { font-size: 0.7rem; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .score-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .score-box.p1 .score-num { color: var(--red); }
+  .score-box.p2 .score-num { color: var(--blue); }
+
+  /* ── LOG ── */
+  .log-box {
+    height: 160px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+    background: var(--bg);
+    border-radius: 4px;
+    padding: 8px;
+    border: 1px solid var(--border);
+  }
+  .log-box .log-r { color: var(--red); }
+  .log-box .log-b { color: var(--blue); }
+  .log-box .log-sys { color: var(--gold-dim); }
+  .log-box .log-ai { color: var(--best); }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--empty);
+    border-radius: 4px;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    min-height: 32px;
+    line-height: 1.4;
+  }
+
+  /* ── BOARD ── */
+  .board-wrap {
+    position: relative;
+  }
+  #board-svg {
+    display: block;
+  }
+
+  /* ── EDIT MODE BAR ── */
+  .edit-bar {
+    display: none;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .edit-bar.visible { display: flex; }
+  .edit-swatch {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .edit-swatch.active { border-color: var(--gold); box-shadow: 0 0 8px rgba(201,168,76,0.5); }
+  .edit-swatch.red { background: var(--red); }
+  .edit-swatch.blue { background: var(--blue); }
+  .edit-swatch.empty { background: var(--empty); }
+
+  /* ── AI THINKING ── */
+  .ai-thinking {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+    color: var(--best);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 6px;
+  }
+  .ai-thinking.visible { display: flex; }
+  .dot-anim { display: flex; gap: 3px; }
+  .dot-anim span {
+    width: 4px; height: 4px;
+    background: var(--best);
+    border-radius: 50%;
+    animation: dotBounce 1s ease-in-out infinite;
+  }
+  .dot-anim span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-anim span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotBounce {
+    0%,80%,100% { transform: translateY(0); opacity: 0.3; }
+    40% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  .winner-banner {
+    display: none;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    background: rgba(15,14,12,0.92);
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    padding: 24px 36px;
+    text-align: center;
+    z-index: 10;
+    animation: popIn 0.3s ease;
+  }
+  @keyframes popIn {
+    from { transform: translate(-50%,-50%) scale(0.8); opacity: 0; }
+    to   { transform: translate(-50%,-50%) scale(1);   opacity: 1; }
+  }
+  .winner-banner.visible { display: block; }
+  .winner-title { font-size: 1.6rem; font-weight: 900; color: var(--gold); margin-bottom: 8px; }
+  .winner-sub   { font-size: 0.8rem; color: var(--text-dim); margin-bottom: 16px; }
+
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+
+  /* 遊戲說明彈窗樣式 */
+  .help-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(4px);
+  }
+
+  .help-dialog {
+    background: var(--panel);
+    border: 2px solid var(--gold);
+    border-radius: 20px;
+    max-width: 560px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+
+  .help-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--empty);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .help-header h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--gold);
+  }
+
+  .help-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-dim);
+    padding: 0;
+    margin: 0;
+    transition: color 0.15s;
+  }
+
+  .help-close:hover {
+    color: var(--gold);
+    background: none;
+    border: none;
+  }
+
+  .help-body {
+    padding: 20px 24px;
+    color: var(--text);
+    font-size: 0.85rem;
+    line-height: 1.65;
+  }
+
+  .help-body h3 {
+    color: var(--gold);
+    font-size: 1rem;
+    margin: 20px 0 8px 0;
+    letter-spacing: 1px;
+  }
+
+  .help-body h3:first-of-type {
+    margin-top: 0;
+  }
+
+  .help-body ul, .help-body p {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+
+  .help-body li {
+    margin: 6px 0;
+  }
+
+  .help-body .rule-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    background: var(--bg);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .help-body .rule-table th,
+  .help-body .rule-table td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .help-body .rule-table th {
+    background: var(--empty);
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .red-dot {
+    color: var(--red);
+    font-size: 16px;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  .blue-dot {
+    color: var(--blue);
+    font-size: 16px;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  .help-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    background: var(--empty);
+    border-radius: 0 0 18px 18px;
+  }
+
+  .help-footer button {
+    background: var(--gold-dim);
+    color: var(--bg);
+    border: none;
+    padding: 10px 28px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .help-footer button:hover {
+    background: var(--gold);
+    transform: scale(1.02);
+  }
+</style>
+</head>
+<body>
+
+<h1>斗蛇棋</h1>
+<p class="subtitle">SNAKE CHESS · 雙六邊形博弈</p>
+
+<div class="main-layout">
+
+  <!-- LEFT PANEL -->
+  <div class="panel" style="min-width:200px">
+    <div class="panel-title">遊戲模式</div>
+    <div class="mode-row">
+      <button class="btn active" id="btn-pvp" onclick="setMode('pvp')">雙人</button>
+      <button class="btn" id="btn-pva" onclick="setMode('pva')">對AI</button>
+    </div>
+
+    <div id="ai-side-row" class="select-row" style="display:none">
+      <label>你執</label>
+      <select id="sel-side" onchange="setSide(this.value)">
+        <option value="1">紅方（先手）</option>
+        <option value="2">藍方（後手）</option>
+      </select>
+    </div>
+
+    <div class="select-row">
+      <label>AI 難度</label>
+      <select id="sel-depth">
+        <option value="3">簡單 (depth 3)</option>
+        <option value="5" selected>普通 (depth 5)</option>
+        <option value="7">困難 (depth 7)</option>
+      </select>
+    </div>
+
+    <hr class="divider">
+
+    <div class="scoreboard">
+      <div class="score-box p1 active-turn" id="score-p1">
+        <div class="score-label">🔴 紅方</div>
+        <div class="score-num" id="cnt-p1">12</div>
+      </div>
+      <div class="score-box p2" id="score-p2">
+        <div class="score-label">🔵 藍方</div>
+        <div class="score-num" id="cnt-p2">12</div>
+      </div>
+    </div>
+
+    <hr class="divider">
+    <div class="panel-title">操作</div>
+
+    <div class="mode-row">
+      <button class="btn action" onclick="newGame()">新局</button>
+      <button class="btn action" id="btn-undo" onclick="undo()">悔棋</button>
+      <button class="btn action" id="btn-help" onclick="showHelp()">📖 遊戲說明</button>
+    </div>
+    <div class="mode-row">
+      <button class="btn action" id="btn-edit" onclick="toggleEdit()">編輯局面</button>
+      <button class="btn action" id="btn-analyze" onclick="analyzeBoard()">AI分析</button>
+    </div>
+
+    <div class="ai-thinking" id="ai-thinking">
+      <div class="dot-anim"><span></span><span></span><span></span></div>
+      AI 思考中…
+    </div>
+
+    <hr class="divider">
+    <div class="panel-title">棋局記錄</div>
+    <div class="log-box" id="log-box"></div>
+    <div class="status-bar" id="status-bar">選擇棋子開始對局</div>
+  </div>
+
+  <!-- BOARD -->
+  <div class="board-wrap">
+    <div class="edit-bar" id="edit-bar">
+      <span style="font-size:0.7rem;color:var(--text-dim)">筆刷：</span>
+      <div class="edit-swatch red active" id="sw-r" onclick="setEditBrush(1)" title="紅方"></div>
+      <div class="edit-swatch blue" id="sw-b" onclick="setEditBrush(2)" title="藍方"></div>
+      <div class="edit-swatch empty" id="sw-e" onclick="setEditBrush(0)" title="清空"></div>
+      <button class="btn action" onclick="finishEdit()" style="margin-left:auto">完成編輯</button>
+    </div>
+
+    <div style="position:relative">
+      <svg id="board-svg" width="760" height="270" viewBox="0 0 760 270"></svg>
+      <div class="winner-banner" id="winner-banner">
+        <div class="winner-title" id="winner-title"></div>
+        <div class="winner-sub" id="winner-sub"></div>
+        <button class="btn action" onclick="newGame()">再來一局</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 遊戲說明彈窗 -->
+  <div id="help-overlay" class="help-overlay" style="display:none">
+    <div class="help-dialog">
+      <div class="help-header">
+        <h2>🐍 斗蛇棋 遊戲說明</h2>
+        <button onclick="closeHelp()" class="help-close">✕</button>
+      </div>
+      <div class="help-body">
+        <h3>🎯 遊戲目標</h3>
+        <p>將對手<strong>所有棋子吃掉</strong>，或使對手<strong>無棋可走</strong>即獲勝。</p>
+
+        <h3>🔴🔵 初始配置</h3>
+        <ul>
+          <li><span class="red-dot">●</span> <strong>紅方（先手）</strong>：12 顆棋子，位於棋盤下半部及右側六邊形</li>
+          <li><span class="blue-dot">●</span> <strong>藍方（後手）</strong>：12 顆棋子，位於棋盤上半部及左側六邊形</li>
+        </ul>
+
+        <h3>🚶 移動規則</h3>
+        <table class="rule-table">
+          <tr>
+            <th>方式</th>
+            <th>說明</th>
+            <th>圖示</th>
+          </tr>
+          <tr>
+            <td><strong>步行</strong></td>
+            <td>移動到相鄰的空格</td>
+            <td>⬅️➡️⬆️⬇️</td>
+          </tr>
+          <tr>
+            <td><strong>跳吃</strong></td>
+            <td>沿直線跳過<strong>相鄰的對方棋子</strong>，落在後方空格，<strong>吃掉被跳過的棋子</strong></td>
+            <td>🐍→🐍→⬚</td>
+          </tr>
+          <tr>
+            <td><strong>禁止</strong></td>
+            <td>❌ 不可跳過己方棋子<br>❌ 不可連跳（每次只能跳一次）</td>
+            <td></td>
+          </tr>
+        </table>
+
+        <h3>🎮 操作方式</h3>
+        <ul>
+          <li><strong>點擊己方棋子</strong>：選中棋子（外圈會高亮）</li>
+          <li><strong>點擊綠色邊框格子</strong>：移動到該位置</li>
+          <li><strong>紅色邊框</strong>：表示該棋子會被吃掉</li>
+          <li><strong>AI分析</strong>：顯示 AI 推薦的最佳走法（黃色高亮）</li>
+          <li><strong>編輯局面</strong>：可自訂棋盤配置，測試各種局面</li>
+          <li><strong>悔棋</strong>：回到上一步</li>
+        </ul>
+
+        <h3>🤖 AI 難度</h3>
+        <ul>
+          <li><strong>簡單 (depth 3)</strong>：反應快，適合新手</li>
+          <li><strong>普通 (depth 5)</strong>：平衡難度</li>
+          <li><strong>困難 (depth 7)</strong>：思考時間較長，棋力較強</li>
+        </ul>
+
+        <h3>📐 棋盤結構</h3>
+        <p>斗蛇棋棋盤由 <strong>25 個節點</strong>和 <strong>4 個六邊形</strong>組成，每個六邊形中心也是節點。棋子沿邊線移動，跳吃必須沿直線進行。</p>
+      </div>
+      <div class="help-footer">
+        <button onclick="closeHelp()">開始對奕</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  BOARD DEFINITION
+// ═══════════════════════════════════════════
+const NUM_NODES = 25;
+// Original 21 vertex nodes + 4 hex center nodes (21=H1c, 22=H2c, 23=H3c, 24=H4c)
+const EDGES = [
+  [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],
+  [13,14],[14,15],[15,16],[16,17],[17,18],[18,19],[19,20],
+  [0,8],[8,13],[1,9],[9,14],
+  [2,9],[9,15],[3,10],[10,16],
+  [4,10],[10,17],[5,11],[11,18],
+  [6,11],[11,19],[7,12],[12,20],
+  // [0,14][1,13] 已由 center21 拆分，刪除
+  // [2,16][3,15] 已由 center22 拆分，刪除
+  // [4,18][5,17] 已由 center23 拆分，刪除
+  // [6,20][7,19] 已由 center24 拆分，刪除
+  // Hex centers connect to all 6 vertices of their hex
+  [21,9],[21,1],[21,0],[21,8],[21,13],[21,14],   // H1 center
+  [22,10],[22,3],[22,2],[22,9],[22,15],[22,16],  // H2 center
+  [23,11],[23,5],[23,4],[23,10],[23,17],[23,18], // H3 center
+  [24,12],[24,7],[24,6],[24,11],[24,19],[24,20], // H4 center
+];
+
+const ADJ = Array.from({length:NUM_NODES}, ()=>new Set());
+EDGES.forEach(([a,b])=>{ ADJ[a].add(b); ADJ[b].add(a); });
+
+const OX = 40, OY = 30; // origin offset
+
+// FLAT-TOP hexagon layout
+// Node mapping (flat-top, vi0=R, vi1=TR, vi2=TL, vi3=L, vi4=BL, vi5=BR):
+// H1: R=9,  TR=1,  TL=0,  L=8,  BL=13, BR=14, C=21
+// H2: R=10, TR=3,  TL=2,  L=9,  BL=15, BR=16, C=22
+// H3: R=11, TR=5,  TL=4,  L=10, BL=17, BR=18, C=23
+// H4: R=12, TR=7,  TL=6,  L=11, BL=19, BR=20, C=24
+
+const S = 80; // hex circumradius
+
+// Hex centers: spacing = 2*S (sharing right/left vertices)
+const HEX_CENTERS = [
+  [OX + S,           OY + S*Math.sqrt(3)/2 + 10],
+  [OX + S + 2*S,     OY + S*Math.sqrt(3)/2 + 10],
+  [OX + S + 4*S,     OY + S*Math.sqrt(3)/2 + 10],
+  [OX + S + 6*S,     OY + S*Math.sqrt(3)/2 + 10],
+];
+
+const hexVertexIdx = [
+  [9, 1, 0, 8,  13, 14],  // H1
+  [10,3, 2, 9,  15, 16],  // H2
+  [11,5, 4, 10, 17, 18],  // H3
+  [12,7, 6, 11, 19, 20],  // H4
+];
+const HEX_CENTER_NODE_IDS = [21, 22, 23, 24];
+
+// Flat-top vertex angles
+const VANGLES = [0, 60, 120, 180, 240, 300];
+
+const NP = new Array(NUM_NODES);
+HEX_CENTERS.forEach(([cx,cy],hi)=>{
+  hexVertexIdx[hi].forEach((nodeId, vi)=>{
+    const ang = VANGLES[vi] * Math.PI/180;
+    if (NP[nodeId] === undefined) {
+      NP[nodeId] = [cx + S*Math.cos(ang), cy + S*Math.sin(ang)];
+    }
+  });
+  // Center node
+  NP[HEX_CENTER_NODE_IDS[hi]] = [cx, cy];
+});
+
+// SVG dimensions
+const SVG_W = Math.max(...NP.map(p=>p[0])) + 60;
+const SVG_H = Math.max(...NP.map(p=>p[1])) + 60;
+
+// ═══════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════
+const EMPTY=0, P1=1, P2=2;
+// 棋盤 25 格，唯一空格 = 節點 10（幾何正中心頂點）
+// 藍方(P2)：8,9,13,14,15,16,17,18,19,20 + H1中心(21) + H2中心(22)
+// 紅方(P1)：0,1,2,3,4,5,6,7,11,12 + H3中心(23) + H4中心(24)
+const P2_INIT=[8,9,13,14,15,16,17,18,19,20,21,22]; // 藍
+const P1_INIT=[0,1,2,3,4,5,6,7,11,12,23,24];        // 紅
+
+let board, turn, history, mode, humanSide, editMode, editBrush;
+let aiWorker = null;
+let bestMoveHighlight = null;
+
+function initBoard() {
+  board = new Array(NUM_NODES).fill(EMPTY);
+  P1_INIT.forEach(n=>board[n]=P1);
+  P2_INIT.forEach(n=>board[n]=P2);
+  turn = P1;
+  history = [];
+  bestMoveHighlight = null;
+}
+
+// ═══════════════════════════════════════════
+//  MOVE GENERATION  (玩法二：不連跳、沿直線跳)
+// ═══════════════════════════════════════════
+
+// 預先計算每條邊的「對面節點」：
+// 若 src-over 是一條邊，落點 land 必須滿足：
+//   1. land 是 over 的鄰居
+//   2. land 不是 src
+//   3. src、over、land 共線（over 是 src→land 線段的中間點）
+//   判斷共線：NP[over] = midpoint(NP[src], NP[land]) ± ε
+function getJumpLand(src, over) {
+  // 落點 land 必須在 src→over 延長線上，且與 over 相鄰
+  // 判斷：NP[over] 必須是 NP[src] 與 NP[land] 的中點
+  const [sx, sy] = NP[src];
+  const [ox, oy] = NP[over];
+  for (const nb of ADJ[over]) {
+    if (nb === src) continue;
+    const [nx, ny] = NP[nb];
+    // over 是否為 src 與 nb 的中點（允許浮點誤差 1.5px）
+    const mx = (sx + nx) / 2, my = (sy + ny) / 2;
+    if (Math.abs(mx - ox) < 1.5 && Math.abs(my - oy) < 1.5) return nb;
+  }
+  return null; // 無有效落點
+}
+
+
+// 遊戲說明彈窗
+function showHelp() {
+  const overlay = document.getElementById('help-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function closeHelp() {
+  const overlay = document.getElementById('help-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+// 點擊遮罩關閉
+document.addEventListener('click', function(e) {
+  const overlay = document.getElementById('help-overlay');
+  if (overlay && overlay.style.display === 'flex' && e.target === overlay) {
+    closeHelp();
+  }
+});
+
+function getMoves(b, t) {
+  const moves = [];
+  const opp = t === P1 ? P2 : P1;
+  for (let src=0; src<NUM_NODES; src++) {
+    if (b[src] !== t) continue;
+    // 走：移到相鄰空格（方向不限）
+    for (const nb of ADJ[src]) {
+      if (b[nb] === EMPTY) moves.push({src, dst:nb, cap:[]});
+    }
+    // 跳：沿直線跳過緊鄰的1枚對方棋子，落點必須為空，跳後吃掉被跳棋子，不連跳，不可跳己方棋子
+    for (const nb of ADJ[src]) {
+      if (b[nb] !== opp) continue; // 只能跳對方棋子
+      const land = getJumpLand(src, nb);
+      if (land !== null && b[land] === EMPTY) {
+        moves.push({src, dst:land, cap:[nb]});
+      }
+    }
+  }
+  return moves;
+}
+
+function applyMove(b, move) {
+  const nb = b.slice();
+  nb[move.dst] = nb[move.src];
+  nb[move.src] = EMPTY;
+  move.cap.forEach(c => nb[c] = EMPTY);
+  return nb;
+}
+
+function isTerminal(b) {
+  if (!b.includes(P1) || !b.includes(P2)) return true;
+  // 若當前行動方無任何合法走法，視為終局
+  return getMoves(b, P1).length === 0 || getMoves(b, P2).length === 0;
+}
+
+function winner(b) {
+  if (!b.includes(P2)) return P1;
+  if (!b.includes(P1)) return P2;
+  // 無路可走者判負
+  if (getMoves(b, P1).length === 0) return P2;
+  if (getMoves(b, P2).length === 0) return P1;
+  return null;
+}
+
+function countPieces(b, p) { return b.filter(x=>x===p).length; }
+
+// ═══════════════════════════════════════════
+//  EVALUATION FUNCTION
+// ═══════════════════════════════════════════
+// Position values: center nodes are more valuable
+const POS_VALUE = [
+  2,2,2,2,2,2,2,2,  // upper row: 0-7
+  5,8,8,8,5,         // middle: 8-12
+  2,2,2,2,2,2,2,2,  // lower row: 13-20
+  10,10,10,10        // hex centers: 21-24 (high value)
+];
+
+function evaluate(b, t) {
+  const opp = t === P1 ? P2 : P1;
+  // 終局：從 t 視角，t贏=+∞，t輸=-∞
+  if (!b.includes(opp) || getMoves(b, opp).length === 0) return 100000;
+  if (!b.includes(t)   || getMoves(b, t).length === 0)   return -100000;
+  let score = 0;
+
+  // 1. Material
+  const myCount = countPieces(b, t);
+  const opCount = countPieces(b, opp);
+  score += (myCount - opCount) * 100;
+
+  // 2. Threats: my capture moves vs opponent capture moves
+  const myMoves = getMoves(b, t);
+  const opMoves = getMoves(b, opp);
+  const myCaptures = myMoves.filter(m=>m.cap.length>0).length;
+  const opCaptures = opMoves.filter(m=>m.cap.length>0).length;
+  score += myCaptures * 50;
+  score -= opCaptures * 65;  // defense weighted heavier
+
+  // 3. Mobility
+  score += myMoves.length * 5;
+  score -= opMoves.length * 5;
+
+  // 4. Position value
+  for (let i=0;i<NUM_NODES;i++) {
+    if (b[i]===t)   score += POS_VALUE[i] * 3;
+    if (b[i]===opp) score -= POS_VALUE[i] * 3;
+  }
+
+  // 5. Connectivity (adjacent friendly pairs)
+  for (const [a,bb] of EDGES) {
+    if (b[a]===t && b[bb]===t) score += 8;
+    if (b[a]===opp && b[bb]===opp) score -= 8;
+  }
+
+  return score;
+}
+
+// ═══════════════════════════════════════════
+//  ALPHA-BETA (runs in Web Worker)
+// ═══════════════════════════════════════════
+const WORKER_CODE = `
+const NUM_NODES=25;
+const EDGES=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[13,14],[14,15],[15,16],[16,17],[17,18],[18,19],[19,20],[0,8],[8,13],[1,9],[9,14],[2,9],[9,15],[3,10],[10,16],[4,10],[10,17],[5,11],[11,18],[6,11],[11,19],[7,12],[12,20],[21,9],[21,1],[21,0],[21,8],[21,13],[21,14],[22,10],[22,3],[22,2],[22,9],[22,15],[22,16],[23,11],[23,5],[23,4],[23,10],[23,17],[23,18],[24,12],[24,7],[24,6],[24,11],[24,19],[24,20]];
+const ADJ=Array.from({length:NUM_NODES},()=>new Set());
+EDGES.forEach(([a,b])=>{ADJ[a].add(b);ADJ[b].add(a);});
+const EMPTY=0,P1=1,P2=2;
+const POS_VALUE=[2,2,2,2,2,2,2,2,5,8,8,8,5,2,2,2,2,2,2,2,2,10,10,10,10];
+
+// 節點座標（與主程序一致）
+const OX=40,OY=30,S=80;
+const VANGLES=[0,60,120,180,240,300];
+const HEX_CENTERS=[[OX+S,OY+S*Math.sqrt(3)/2+10],[OX+S+2*S,OY+S*Math.sqrt(3)/2+10],[OX+S+4*S,OY+S*Math.sqrt(3)/2+10],[OX+S+6*S,OY+S*Math.sqrt(3)/2+10]];
+const hexVtx=[[9,1,0,8,13,14],[10,3,2,9,15,16],[11,5,4,10,17,18],[12,7,6,11,19,20]];
+const HEX_CENTER_IDS=[21,22,23,24];
+const NP=new Array(NUM_NODES);
+HEX_CENTERS.forEach(([cx,cy],hi)=>{hexVtx[hi].forEach((id,vi)=>{const a=VANGLES[vi]*Math.PI/180;if(NP[id]===undefined)NP[id]=[cx+S*Math.cos(a),cy+S*Math.sin(a)];});NP[HEX_CENTER_IDS[hi]]=[cx,cy];});
+
+// 沿直線跳：src→over→land，land 在 over 的對面
+function getJumpLand(src,over){
+  const[sx,sy]=NP[src],[ox,oy]=NP[over];
+  for(const nb of ADJ[over]){if(nb===src)continue;const[nx,ny]=NP[nb];const mx=(sx+nx)/2,my=(sy+ny)/2;if(Math.abs(mx-ox)<1.5&&Math.abs(my-oy)<1.5)return nb;}
+  return null;
+}
+
+function getMoves(b,t){
+  const moves=[],opp=t===P1?P2:P1;
+  for(let src=0;src<NUM_NODES;src++){
+    if(b[src]!==t)continue;
+    for(const nb of ADJ[src])if(b[nb]===EMPTY)moves.push({src,dst:nb,cap:[]});
+    for(const nb of ADJ[src]){if(b[nb]!==opp)continue;const land=getJumpLand(src,nb);if(land!==null&&b[land]===EMPTY){moves.push({src,dst:land,cap:[nb]});}}
+  }
+  return moves;
+}
+
+function applyMove(b,m){const nb=b.slice();nb[m.dst]=nb[m.src];nb[m.src]=EMPTY;m.cap.forEach(c=>nb[c]=EMPTY);return nb;}
+
+function evaluate(b,t){
+  const opp=t===P1?P2:P1;
+  const myM=getMoves(b,t),opM=getMoves(b,opp);
+  if(!b.includes(opp)||opM.length===0)return 100000;
+  if(!b.includes(t)||myM.length===0)return -100000;
+  let s=0;
+  const myC=b.filter(x=>x===t).length,opC=b.filter(x=>x===opp).length;
+  s+=(myC-opC)*100;
+  s+=myM.filter(m=>m.cap.length>0).length*50;
+  s-=opM.filter(m=>m.cap.length>0).length*65;
+  s+=myM.length*5-opM.length*5;
+  for(let i=0;i<NUM_NODES;i++){if(b[i]===t)s+=POS_VALUE[i]*3;if(b[i]===opp)s-=POS_VALUE[i]*3;}
+  for(const [a,bb] of EDGES){if(b[a]===t&&b[bb]===t)s+=8;if(b[a]===opp&&b[bb]===opp)s-=8;}
+  return s;
+}
+
+function orderMoves(moves){return moves.slice().sort((a,b2)=>b2.cap.length-a.cap.length);}
+
+function alphaBeta(b,depth,alpha,beta,maximizing,myPlayer){
+  const opp=myPlayer===P1?P2:P1;
+  const t=maximizing?myPlayer:opp;
+  const moves=orderMoves(getMoves(b,t));
+  if(!b.includes(opp)||getMoves(b,opp).length===0)return 100000;
+  if(!b.includes(myPlayer)||getMoves(b,myPlayer).length===0)return -100000;
+  if(depth===0)return evaluate(b,myPlayer);
+  if(!moves.length)return evaluate(b,myPlayer);
+  if(maximizing){
+    let best=-Infinity;
+    for(const m of moves){const v=alphaBeta(applyMove(b,m),depth-1,alpha,beta,false,myPlayer);best=Math.max(best,v);alpha=Math.max(alpha,v);if(beta<=alpha)break;}
+    return best;
+  }else{
+    let best=Infinity;
+    for(const m of moves){const v=alphaBeta(applyMove(b,m),depth-1,alpha,beta,true,myPlayer);best=Math.min(best,v);beta=Math.min(beta,v);if(beta<=alpha)break;}
+    return best;
+  }
+}
+
+function findBestMove(b,t,depth){
+  const moves=orderMoves(getMoves(b,t));
+  if(!moves.length)return null;
+  let bestVal=-Infinity,bestMove=null;
+  for(const m of moves){const v=alphaBeta(applyMove(b,m),depth-1,-Infinity,Infinity,false,t);if(v>bestVal){bestVal=v;bestMove=m;}}
+  return {move:bestMove,score:bestVal};
+}
+
+onmessage=function(e){const {board,turn,depth}=e.data;postMessage(findBestMove(board,turn,depth));};
+`;
+
+function createWorker() {
+  const blob = new Blob([WORKER_CODE], {type:'application/javascript'});
+  return new Worker(URL.createObjectURL(blob));
+}
+
+// ═══════════════════════════════════════════
+//  UI STATE
+// ═══════════════════════════════════════════
+let selectedNode = null;
+let highlightMoves = [];
+
+mode = 'pvp';
+humanSide = 1;
+editMode = false;
+editBrush = 1;
+
+// ═══════════════════════════════════════════
+//  SVG RENDERING
+// ═══════════════════════════════════════════
+const svg = document.getElementById('board-svg');
+svg.setAttribute('width', SVG_W);
+svg.setAttribute('height', SVG_H);
+svg.setAttribute('viewBox', `0 0 ${SVG_W} ${SVG_H}`);
+
+function createEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+  return el;
+}
+
+let edgeEls = [], nodeEls = [], nodeCircles = [], nodeLabels = [];
+
+function buildSVG() {
+  svg.innerHTML = '';
+
+  // Draw hex outlines (flat-top, decorative)
+  HEX_CENTERS.forEach(([cx,cy])=>{
+    const pts = Array.from({length:6},(_,i)=>{
+      const ang = VANGLES[i]*Math.PI/180;
+      return `${cx+S*Math.cos(ang)},${cy+S*Math.sin(ang)}`;
+    }).join(' ');
+    const poly = createEl('polygon',{
+      points: pts,
+      fill: 'none',
+      stroke: '#2a2520',
+      'stroke-width': '1.5',
+    });
+    svg.appendChild(poly);
+  });
+
+  // Draw all 3 diagonals per hex (connecting opposite vertices)
+  // Flat-top: v0-v3 (R-L), v1-v4 (TR-BL), v2-v5 (TL-BR)
+  HEX_CENTERS.forEach(([cx,cy])=>{
+    [[0,3],[1,4],[2,5]].forEach(([va,vb])=>{
+      const angA = VANGLES[va]*Math.PI/180;
+      const angB = VANGLES[vb]*Math.PI/180;
+      const line = createEl('line',{
+        x1: cx+S*Math.cos(angA), y1: cy+S*Math.sin(angA),
+        x2: cx+S*Math.cos(angB), y2: cy+S*Math.sin(angB),
+        stroke:'#252015','stroke-width':'1',
+      });
+      svg.appendChild(line);
+    });
+  });
+
+  // Draw top and bottom horizontal lines spanning full board
+  // Top row: nodes 13-14-15-16-17-18-19-20 (all have same y)
+  // Bottom row: nodes 0-1-2-3-4-5-6-7 (all have same y)
+  const topY    = NP[13][1];
+  const botY    = NP[0][1];
+  const leftX   = NP[8][0];    // leftmost middle node x (=left vertex of H1)
+  const rightX  = NP[12][0];   // rightmost middle node x (=right vertex of H4)
+  // Extend the line to the outermost top/bottom nodes
+  const topLeftX  = NP[13][0];
+  const topRightX = NP[20][0];
+  const botLeftX  = NP[0][0];
+  const botRightX = NP[7][0];
+
+  [
+    [topLeftX, topY, topRightX, topY],
+    [botLeftX, botY, botRightX, botY],
+  ].forEach(([x1,y1,x2,y2])=>{
+    svg.appendChild(createEl('line',{x1,y1,x2,y2,stroke:'#3a3228','stroke-width':'2'}));
+  });
+
+  // Draw edges
+  edgeEls = [];
+  EDGES.forEach(([a,b],i)=>{
+    const [x1,y1]=NP[a],[x2,y2]=NP[b];
+    const line = createEl('line',{x1,y1,x2,y2,stroke:'#3a3228','stroke-width':'2'});
+    svg.appendChild(line);
+    edgeEls.push({el:line,a,b});
+  });
+
+  // Draw nodes
+  nodeEls = [];
+  nodeCircles = [];
+  for (let i=0;i<NUM_NODES;i++) {
+    const [x,y] = NP[i];
+    const g = createEl('g',{});
+
+    // outer ring (for highlight)
+    const ring = createEl('circle',{cx:x,cy:y,r:20,fill:'none',stroke:'transparent','stroke-width':'3'});
+    g.appendChild(ring);
+
+    // main circle
+    const c = createEl('circle',{cx:x,cy:y,r:15,fill:'#2a2520',stroke:'#4a4035','stroke-width':'2',style:'cursor:pointer'});
+    g.appendChild(c);
+
+    // label (hidden - no numbers shown)
+    const lbl = createEl('text',{x,y:''+( y+1),
+      'text-anchor':'middle','dominant-baseline':'middle',
+      'font-size':'11','font-family':'JetBrains Mono,monospace',
+      'font-weight':'700',fill:'transparent',
+      style:'pointer-events:none',
+    });
+    lbl.textContent = '';
+    g.appendChild(lbl);
+
+    g.addEventListener('click',()=>onNodeClick(i));
+    svg.appendChild(g);
+    nodeEls.push({g, ring, c, lbl});
+    nodeCircles.push(c);
+  }
+}
+
+function renderBoard() {
+  const moves = highlightMoves;
+  const moveDsts = new Set(moves.map(m=>m.dst));
+  const moveCaps = new Set(moves.flatMap(m=>m.cap));
+
+  for (let i=0;i<NUM_NODES;i++) {
+    const {ring,c,lbl} = nodeEls[i];
+    const isSelected = i === selectedNode;
+    const isDst = moveDsts.has(i);
+    const isCap = moveCaps.has(i);
+    const isBestSrc = bestMoveHighlight && i===bestMoveHighlight.src;
+    const isBestDst = bestMoveHighlight && i===bestMoveHighlight.dst;
+    const isBestCap = bestMoveHighlight && bestMoveHighlight.cap.includes(i);
+
+    // Piece color
+    let fill = '#2a2520';
+    let stroke = '#4a4035';
+    let textFill = '#5a5040';
+    let ringStroke = 'transparent';
+
+    if (board[i] === P1) {
+      fill = '#c03020';
+      stroke = '#e05c3a';
+      textFill = '#ffccc0';
+    } else if (board[i] === P2) {
+      fill = '#1a4a80';
+      stroke = '#4a9edd';
+      textFill = '#c0e0ff';
+    }
+
+    // Highlights
+    if (isSelected) {
+      stroke = '#f0c060';
+      ringStroke = '#f0c060';
+    } else if (isBestDst) {
+      ringStroke = '#ffe040';
+      stroke = '#ffe040';
+    } else if (isBestSrc) {
+      ringStroke = '#ffe040';
+    } else if (isDst) {
+      if (board[i] === EMPTY) {
+        fill = '#1a3020';
+        stroke = '#60d080';
+        textFill = '#60d080';
+      }
+      ringStroke = '#60d080';
+    } else if (isCap || isBestCap) {
+      ringStroke = '#e04040';
+      stroke = '#e04040';
+    }
+
+    c.setAttribute('fill', fill);
+    c.setAttribute('stroke', stroke);
+    ring.setAttribute('stroke', ringStroke);
+    lbl.setAttribute('fill', textFill);
+  }
+
+  // Highlight best move edge
+  edgeEls.forEach(({el,a,b})=>{
+    const isBest = bestMoveHighlight &&
+      ((a===bestMoveHighlight.src&&b===bestMoveHighlight.dst)||
+       (b===bestMoveHighlight.src&&a===bestMoveHighlight.dst));
+    el.setAttribute('stroke', isBest ? '#ffe040' : '#3a3228');
+    el.setAttribute('stroke-width', isBest ? '3' : '2');
+  });
+
+  // Score display
+  const c1 = countPieces(board, P1);
+  const c2 = countPieces(board, P2);
+  document.getElementById('cnt-p1').textContent = c1;
+  document.getElementById('cnt-p2').textContent = c2;
+  document.getElementById('score-p1').classList.toggle('active-turn', turn===P1);
+  document.getElementById('score-p2').classList.toggle('active-turn', turn===P2);
+}
+
+// ═══════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════
+function onNodeClick(nodeIdx) {
+  if (editMode) {
+    history.push({board:board.slice(), turn});
+    board[nodeIdx] = editBrush;
+    renderBoard();
+    return;
+  }
+
+  if (isTerminal(board)) return;
+
+  const isHumanTurn = mode==='pvp' || (mode==='pva' && turn===humanSide);
+  if (!isHumanTurn) return;
+
+  if (selectedNode === null) {
+    if (board[nodeIdx] !== turn) return;
+    selectedNode = nodeIdx;
+    highlightMoves = getMoves(board, turn).filter(m=>m.src===nodeIdx);
+    setStatus(`節點 ${nodeIdx} 已選取，${highlightMoves.length} 個合法走法`);
+  } else {
+    // try to apply move
+    // 走棋與跳吃可能有相同 dst（因鄰接表有直接邊），優先選有吃子的跳行
+    const m = highlightMoves.filter(m=>m.dst===nodeIdx).sort((a,b)=>b.cap.length-a.cap.length)[0];
+    if (m) {
+      doMove(m);
+    } else if (board[nodeIdx] === turn) {
+      selectedNode = nodeIdx;
+      highlightMoves = getMoves(board, turn).filter(m=>m.src===nodeIdx);
+      setStatus(`節點 ${nodeIdx} 已選取，${highlightMoves.length} 個合法走法`);
+    } else {
+      selectedNode = null;
+      highlightMoves = [];
+      setStatus('已取消選取');
+    }
+  }
+  renderBoard();
+}
+
+function doMove(m) {
+  history.push({board:board.slice(), turn, bestMoveHighlight});
+  board = applyMove(board, m);
+  const opp = turn===P1?P2:P1;
+  const capStr = m.cap.length ? ` 吃 [${m.cap.join(',')}]` : '';
+  addLog(turn, `${turn===P1?'紅':'藍'}: ${m.src}→${m.dst}${capStr}`);
+  turn = opp;
+  selectedNode = null;
+  highlightMoves = [];
+  bestMoveHighlight = null;
+
+  renderBoard();
+  checkWin();
+
+  if (!isTerminal(board) && mode==='pva' && turn!==humanSide) {
+    setTimeout(doAIMove, 300);
+  }
+}
+
+function doAIMove() {
+  const depth = parseInt(document.getElementById('sel-depth').value);
+  document.getElementById('ai-thinking').classList.add('visible');
+  setStatus('AI 思考中…');
+
+  if (aiWorker) aiWorker.terminate();
+  aiWorker = createWorker();
+  aiWorker.postMessage({board:board.slice(), turn, depth});
+  aiWorker.onmessage = function(e) {
+    document.getElementById('ai-thinking').classList.remove('visible');
+    if (!e.data || !e.data.move) {
+      setStatus('AI 無走法');
+      return;
+    }
+    const {move, score} = e.data;
+    setStatus(`AI 選擇 ${move.src}→${move.dst}（評估分：${score}）`);
+    addLog(turn, `AI: ${move.src}→${move.dst}`, 'ai');
+    doMove(move);
+    aiWorker = null;
+  };
+}
+
+function checkWin() {
+  const w = winner(board);
+  if (w) {
+    const banner = document.getElementById('winner-banner');
+    document.getElementById('winner-title').textContent = w===P1 ? '🔴 紅方獲勝！' : '🔵 藍方獲勝！';
+    document.getElementById('winner-sub').textContent = `共 ${history.length} 步`;
+    banner.classList.add('visible');
+    addLog(null, `遊戲結束：${w===P1?'紅':'藍'}方獲勝`, 'sys');
+  }
+}
+
+// ═══════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-pvp').classList.toggle('active', m==='pvp');
+  document.getElementById('btn-pva').classList.toggle('active', m==='pva');
+  document.getElementById('ai-side-row').style.display = m==='pva' ? '' : 'none';
+  newGame();
+}
+
+function setSide(v) {
+  humanSide = parseInt(v);
+  newGame();
+}
+
+function newGame() {
+  if (aiWorker) { aiWorker.terminate(); aiWorker = null; }
+  document.getElementById('ai-thinking').classList.remove('visible');
+  document.getElementById('winner-banner').classList.remove('visible');
+  initBoard();
+  selectedNode = null;
+  highlightMoves = [];
+  bestMoveHighlight = null;
+  if (editMode) finishEdit();
+  document.getElementById('log-box').innerHTML = '';
+  addLog(null,'新局開始','sys');
+  renderBoard();
+  setStatus('遊戲開始！選擇棋子走棋');
+
+  if (mode==='pva' && humanSide===P2) {
+    setTimeout(doAIMove, 500);
+  }
+}
+
+function undo() {
+  if (!history.length) return;
+  if (aiWorker) { aiWorker.terminate(); aiWorker = null; }
+  document.getElementById('ai-thinking').classList.remove('visible');
+  document.getElementById('winner-banner').classList.remove('visible');
+  // PvA 模式：盡量退 2 步（含 AI 那步），但歷史不足時只退 1 步
+  const steps = (mode==='pva') ? Math.min(2, history.length) : 1;
+  for (let i=0; i<steps; i++) {
+    const prev = history.pop();
+    board = prev.board;
+    turn = prev.turn;
+    bestMoveHighlight = prev.bestMoveHighlight || null;
+  }
+  selectedNode = null;
+  highlightMoves = [];
+  renderBoard();
+  addLog(null,'悔棋','sys');
+  setStatus('悔棋完成');
+}
+
+function toggleEdit() {
+  editMode = !editMode;
+  document.getElementById('edit-bar').classList.toggle('visible', editMode);
+  document.getElementById('btn-edit').classList.toggle('active', editMode);
+  if (editMode) {
+    selectedNode = null;
+    highlightMoves = [];
+    setStatus('編輯模式：點擊節點切換棋子');
+  } else {
+    setStatus('編輯完成');
+  }
+  renderBoard();
+}
+
+function finishEdit() {
+  editMode = false;
+  document.getElementById('edit-bar').classList.remove('visible');
+  document.getElementById('btn-edit').classList.remove('active');
+  setStatus('編輯完成，繼續對局');
+  renderBoard();
+}
+
+function setEditBrush(v) {
+  editBrush = v;
+  ['r','b','e'].forEach((id,i)=>{
+    document.getElementById('sw-'+id).classList.toggle('active', [1,2,0][i]===v);
+  });
+}
+
+function analyzeBoard() {
+  if (isTerminal(board)) { setStatus('遊戲已結束'); return; }
+  const depth = parseInt(document.getElementById('sel-depth').value);
+  document.getElementById('ai-thinking').classList.add('visible');
+  setStatus('AI 分析局面中…');
+  bestMoveHighlight = null;
+
+  if (aiWorker) aiWorker.terminate();
+  aiWorker = createWorker();
+  aiWorker.postMessage({board:board.slice(), turn, depth});
+  aiWorker.onmessage = function(e) {
+    document.getElementById('ai-thinking').classList.remove('visible');
+    if (!e.data || !e.data.move) { setStatus('無建議走法'); return; }
+    const {move, score} = e.data;
+    bestMoveHighlight = move;
+    const capStr = move.cap.length ? ` 吃 [${move.cap.join(',')}]` : '';
+    const adv = score > 0 ? '🔴 紅方有利' : score < 0 ? '🔵 藍方有利' : '均勢';
+    setStatus(`建議：${move.src}→${move.dst}${capStr}　評估：${score > 0?'+':''}${score}（${adv}）`);
+    addLog(null, `分析：最佳走法 ${move.src}→${move.dst}${capStr}　分數 ${score}`, 'ai');
+    renderBoard();
+    aiWorker = null;
+  };
+}
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+function setStatus(txt) {
+  document.getElementById('status-bar').textContent = txt;
+}
+
+function addLog(player, msg, cls) {
+  const box = document.getElementById('log-box');
+  const div = document.createElement('div');
+  if (cls) div.className = 'log-'+cls;
+  else if (player===P1) div.className='log-r';
+  else if (player===P2) div.className='log-b';
+  div.textContent = msg;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+buildSVG();
+initBoard();
+renderBoard();
+addLog(null,'斗蛇棋啟動','sys');
+setStatus('雙人模式：點擊棋子開始');
+</script>
+</body>
+</html>

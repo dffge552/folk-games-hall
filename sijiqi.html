@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>四季棋</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;700;900&family=Cinzel:wght@400;700&display=swap');
+
+    :root {
+      --bg: #0d0f0e;
+      --surface: #141916;
+      --panel: #1a1f1c;
+      --border: #2a3329;
+      --spring: #7ecf6e;
+      --summer: #f4a93d;
+      --autumn: #e05a3a;
+      --winter: #6db8e8;
+      --spring-dark: #4a8f3c;
+      --summer-dark: #b07020;
+      --autumn-dark: #9e2e15;
+      --winter-dark: #3a7aaa;
+      --spring-glow: rgba(126,207,110,0.35);
+      --summer-glow: rgba(244,169,61,0.35);
+      --autumn-glow: rgba(224,90,58,0.35);
+      --winter-glow: rgba(109,184,232,0.35);
+      --text: #d4dcd0;
+      --text-dim: #7a8f77;
+      --accent: #a8c8a0;
+      --gold: #c8a86a;
+      --grid-line: #1e2a1e;
+      --highlight: rgba(255,255,160,0.13);
+      --move-dot: rgba(255,255,200,0.22);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Serif TC', serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* Background texture */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+              radial-gradient(ellipse 60% 40% at 20% 20%, rgba(126,207,110,0.04) 0%, transparent 60%),
+              radial-gradient(ellipse 50% 35% at 80% 80%, rgba(109,184,232,0.04) 0%, transparent 60%),
+              radial-gradient(ellipse 40% 30% at 80% 10%, rgba(244,169,61,0.03) 0%, transparent 50%),
+              radial-gradient(ellipse 40% 30% at 20% 90%, rgba(224,90,58,0.03) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative; z-index: 1;
+      text-align: center;
+      padding: 28px 20px 12px;
+    }
+    header h1 {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      background: linear-gradient(135deg, var(--spring) 0%, var(--summer) 35%, var(--autumn) 65%, var(--winter) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 18px rgba(168,200,160,0.25));
+    }
+    header p {
+      color: var(--text-dim);
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      margin-top: 6px;
+    }
+
+    /* Mode bar */
+    .mode-bar {
+      position: relative; z-index: 1;
+      display: flex;
+      gap: 6px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin: 8px 0 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .mode-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-family: 'Noto Serif TC', serif;
+      font-size: 0.82rem;
+      padding: 7px 16px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.05em;
+    }
+    .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .mode-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+      font-weight: 700;
+    }
+
+    /* Main layout */
+    .main {
+      position: relative; z-index: 1;
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+      padding: 0 16px 32px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    /* Board */
+    .board-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #board-canvas {
+      display: block;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      box-shadow:
+              0 0 0 1px rgba(255,255,255,0.03),
+              0 8px 40px rgba(0,0,0,0.6),
+              0 0 60px rgba(126,207,110,0.06);
+    }
+
+    .coord-labels {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 28px;
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+    }
+
+    /* Status bar */
+    .status-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 20px;
+      text-align: center;
+      min-width: 300px;
+      width: 100%;
+    }
+    .status-bar .turn-label {
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+    .status-bar .turn-info {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+    .status-bar .sub-info {
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    /* Side panel */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 230px;
+      max-width: 270px;
+      flex: 1;
+    }
+
+    .panel-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .panel-card h3 {
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    /* Piece info */
+    .piece-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .piece-row:last-child { border-bottom: none; }
+    .piece-dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px var(--glow, rgba(255,255,255,0.2));
+    }
+    .piece-name { font-size: 0.88rem; flex: 1; }
+    .piece-pos { font-size: 0.8rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    .piece-result {
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .result-win { background: rgba(126,207,110,0.2); color: var(--spring); }
+    .result-lose { background: rgba(224,90,58,0.2); color: var(--autumn); }
+    .result-draw { background: rgba(200,168,106,0.15); color: var(--gold); }
+    .result-unknown { background: rgba(120,120,120,0.15); color: var(--text-dim); }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      flex: 1;
+      min-width: 70px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Noto Serif TC', serif;
+      font-size: 0.8rem;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.18s;
+      letter-spacing: 0.04em;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(168,200,160,0.06); }
+    .btn:active { transform: scale(0.97); }
+    .btn.danger:hover { border-color: var(--autumn); color: var(--autumn); background: rgba(224,90,58,0.07); }
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+      font-weight: 700;
+    }
+    .btn.primary:hover { background: var(--spring); border-color: var(--spring); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn:disabled:hover { border-color: var(--border); color: var(--text); background: transparent; }
+
+    /* AI settings */
+    .ai-setting {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 9px;
+      font-size: 0.82rem;
+    }
+    .ai-setting label { color: var(--text-dim); }
+    .ai-setting select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Noto Serif TC', serif;
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* Move log */
+    #move-log {
+      max-height: 180px;
+      overflow-y: auto;
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+    #move-log::-webkit-scrollbar { width: 4px; }
+    #move-log::-webkit-scrollbar-track { background: var(--bg); }
+    #move-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .log-entry { padding: 1px 0; }
+    .log-entry.spring { color: var(--spring); }
+    .log-entry.summer { color: var(--summer); }
+    .log-entry.autumn { color: var(--autumn); }
+    .log-entry.winter { color: var(--winter); }
+    .log-entry.system { color: var(--gold); font-style: italic; }
+
+    /* DB status - removed, replaced by AI engine status */
+    .engine-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.76rem;
+    }
+    .engine-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--spring);
+      box-shadow: 0 0 6px var(--spring-glow);
+    }
+
+    /* Edit mode notice */
+    .edit-notice {
+      background: rgba(244,169,61,0.08);
+      border: 1px solid rgba(244,169,61,0.25);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.78rem;
+      color: var(--summer);
+      line-height: 1.6;
+    }
+
+    /* AI thinking overlay */
+    .thinking {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--summer);
+      animation: fadeIn 0.3s;
+    }
+    .thinking.show { display: flex; }
+    .thinking-dots span {
+      display: inline-block;
+      animation: bounce 1.2s infinite;
+    }
+    .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-4px)} }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s;
+      z-index: 100;
+      text-align: center;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Win overlay */
+    #win-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+    }
+    #win-overlay.show { display: flex; }
+    .win-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 40px 50px;
+      text-align: center;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.8);
+      animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes popIn { from{transform:scale(0.7);opacity:0} to{transform:scale(1);opacity:1} }
+    .win-title {
+      font-family: 'Cinzel', serif;
+      font-size: 2rem;
+      margin-bottom: 10px;
+      letter-spacing: 0.08em;
+    }
+    .win-sub { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 24px; }
+    .win-btn-row { display: flex; gap: 12px; justify-content: center; }
+
+    /* Scrollbar global */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* 游戏说明弹窗 */
+    .rules-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 60;
+      align-items: center;
+      justify-content: center;
+    }
+    .rules-overlay.show { display: flex; }
+    .rules-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px 28px;
+      max-width: 460px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.8);
+      animation: popIn 0.3s ease;
+    }
+    .rules-box h2 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.5rem;
+      text-align: center;
+      background: linear-gradient(135deg, var(--spring), var(--summer), var(--autumn), var(--winter));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 16px;
+    }
+    .rules-box h3 {
+      color: var(--gold);
+      font-size: 0.9rem;
+      margin: 16px 0 8px 0;
+      border-left: 3px solid var(--spring);
+      padding-left: 10px;
+    }
+    .rules-box p, .rules-box li {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .rules-box ul {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .rules-box .piece-demo {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 4px;
+    }
+    .rules-close {
+      display: block;
+      margin: 20px auto 0;
+      width: 100px;
+      background: var(--accent);
+      border: none;
+      color: var(--bg);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>四 季 棋</h1>
+  <p>SEASONS CHESS · 春 夏 秋 冬</p>
+</header>
+
+<div class="mode-bar">
+  <button class="mode-btn active" id="btn-pvp" onclick="setMode('pvp')">⚔ 雙人對戰</button>
+  <button class="mode-btn" id="btn-pva" onclick="setMode('pva')">🤖 人機對戰</button>
+  <button class="mode-btn" id="btn-edit" onclick="setMode('edit')">✏ 編輯局面</button>
+</div>
+
+<div class="main">
+  <!-- Left: Board -->
+  <div class="board-wrap">
+    <canvas id="board-canvas" width="520" height="520"></canvas>
+    <div class="status-bar">
+      <div class="turn-label">當前回合</div>
+      <div class="turn-info" id="turn-info">春夏方 · 請選擇棋子</div>
+      <div class="sub-info" id="sub-info">春(0,0) 夏(0,9) 秋(9,9) 冬(9,0)</div>
+    </div>
+    <div class="thinking" id="thinking-bar">
+      <span>AI 思考中</span>
+      <span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span>
+    </div>
+  </div>
+
+  <!-- Right: Side panels -->
+  <div class="side-panel">
+
+    <!-- AI Engine Status (replaces DB) -->
+    <div class="panel-card">
+      <h3>AI 引擎</h3>
+      <div class="engine-status">
+        <div class="engine-dot"></div>
+        <span>Alpha-Beta 智慧核心 (深度自動)</span>
+      </div>
+    </div>
+
+    <!-- AI Settings (hidden in pvp) -->
+    <div class="panel-card" id="ai-settings-card">
+      <h3>AI 設定</h3>
+      <div class="ai-setting">
+        <label>AI 執棋</label>
+        <select id="ai-side">
+          <option value="1">秋冬方（後手）</option>
+          <option value="0">春夏方（先手）</option>
+          <option value="2">隨機</option>
+        </select>
+      </div>
+      <div class="ai-setting">
+        <label>AI 強度</label>
+        <select id="ai-strength">
+          <option value="alpha_max">深度自動（最強）</option>
+          <option value="random">隨機（亂走）</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Edit mode -->
+    <div class="panel-card" id="edit-card" style="display:none">
+      <h3>編輯局面</h3>
+      <div class="edit-notice">
+        點選棋子後，再點選目標格子放置。棋子不可重疊。
+      </div>
+      <div style="margin-top:12px;">
+        <div class="ai-setting">
+          <label>選擇棋子</label>
+          <select id="edit-piece">
+            <option value="0">🌱 春</option>
+            <option value="1">☀ 夏</option>
+            <option value="2">🍂 秋</option>
+            <option value="3">❄ 冬</option>
+          </select>
+        </div>
+        <div class="ai-setting">
+          <label>先手</label>
+          <select id="edit-turn">
+            <option value="0">春夏方</option>
+            <option value="1">秋冬方</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn primary" onclick="confirmEdit()">確定局面</button>
+        <button class="btn danger" onclick="resetEdit()">重置</button>
+      </div>
+    </div>
+
+    <!-- Piece info & AI analysis -->
+    <div class="panel-card">
+      <h3>棋子位置 / AI 分析</h3>
+      <div id="piece-info">
+        <div class="piece-row">
+          <div class="piece-dot" style="background:var(--spring);--glow:var(--spring-glow)"></div>
+          <span class="piece-name">春（春夏方）</span>
+          <span class="piece-pos" id="pos-spring">(0,0)</span>
+          <span class="piece-result result-unknown" id="res-spring">-</span>
+        </div>
+        <div class="piece-row">
+          <div class="piece-dot" style="background:var(--summer);--glow:var(--summer-glow)"></div>
+          <span class="piece-name">夏（春夏方）</span>
+          <span class="piece-pos" id="pos-summer">(0,9)</span>
+          <span class="piece-result result-unknown" id="res-summer">-</span>
+        </div>
+        <div class="piece-row">
+          <div class="piece-dot" style="background:var(--autumn);--glow:var(--autumn-glow)"></div>
+          <span class="piece-name">秋（秋冬方）</span>
+          <span class="piece-pos" id="pos-autumn">(9,9)</span>
+          <span class="piece-result result-unknown" id="res-autumn">-</span>
+        </div>
+        <div class="piece-row">
+          <div class="piece-dot" style="background:var(--winter);--glow:var(--winter-glow)"></div>
+          <span class="piece-name">冬（秋冬方）</span>
+          <span class="piece-pos" id="pos-winter">(9,0)</span>
+          <span class="piece-result result-unknown" id="res-winter">-</span>
+        </div>
+      </div>
+      <div id="state-result-row" style="margin-top:12px; font-size:0.82rem; color:var(--text-dim);">
+        當前評估：<span id="state-result" style="color:var(--gold)">-</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="panel-card">
+      <h3>操作</h3>
+      <div class="btn-row" style="margin-bottom:8px;">
+        <button class="btn" id="btn-undo" onclick="undo()">↩ 悔棋</button>
+        <button class="btn" onclick="analyzePosition()">🔍 分析</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn danger" onclick="resetGame()">↺ 重新開始</button>
+      </div>
+      <div class="btn-row" style="margin-top: 8px;">
+        <button class="btn" onclick="showGameRules()">📖 遊戲說明</button>
+      </div>
+    </div>
+
+    <!-- Move log -->
+    <div class="panel-card">
+      <h3>棋譜</h3>
+      <div id="move-log"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Win overlay -->
+<div id="win-overlay">
+  <div class="win-box">
+    <div class="win-title" id="win-title">春夏方獲勝！</div>
+    <div class="win-sub" id="win-sub">秋冬方無法移動</div>
+    <div class="win-btn-row">
+      <button class="btn primary" onclick="resetGame()">再來一局</button>
+      <button class="btn" onclick="document.getElementById('win-overlay').classList.remove('show')">檢視棋局</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- 游戏说明弹窗 -->
+<div id="rules-overlay" class="rules-overlay">
+  <div class="rules-box">
+    <h2>🌿 四季棋 玩法說明 🍂</h2>
+
+    <h3>🎯 遊戲目標</h3>
+    <p>讓對手無法移動任何棋子，即獲得勝利。</p>
+
+    <h3>♟️ 棋子與陣營</h3>
+    <ul>
+      <li><span style="color:#7ecf6e;">● 春</span> + <span style="color:#f4a93d;">● 夏</span> = <strong style="color:#7ecf6e;">春夏方</strong>（先手）</li>
+      <li><span style="color:#e05a3a;">● 秋</span> + <span style="color:#6db8e8;">● 冬</span> = <strong style="color:#e05a3a;">秋冬方</strong>（後手）</li>
+    </ul>
+
+    <h3>🏃 移動規則</h3>
+    <ul>
+      <li>棋子可沿上、下、左、右方向直線移動任意格數。</li>
+      <li><strong>不可穿越</strong>任何棋子（包含敵我雙方）。</li>
+      <li><strong>春與秋</strong> 之間會互相阻擋（不可跨越對方）。</li>
+      <li><strong>夏與冬</strong> 之間會互相阻擋（不可跨越對方）。</li>
+      <li>移動時不能停留於有棋子的格子。</li>
+    </ul>
+
+    <h3>💡 特殊阻擋關係</h3>
+    <ul>
+      <li>春 🚫 無法跨越秋，秋 🚫 無法跨越春。</li>
+      <li>夏 🚫 無法跨越冬，冬 🚫 無法跨越夏。</li>
+      <li>其餘組合（春/夏、秋/冬等）可自由跨越。</li>
+    </ul>
+
+    <h3>🤖 人機對戰</h3>
+    <ul>
+      <li>AI 採用 <strong>Alpha-Beta 剪枝</strong> 演算法，深度自動至最強。</li>
+      <li>可於右側面板設定 AI 執棋方與強度。</li>
+      <li>點擊「分析」按鈕，AI 會顯示建議走法。</li>
+    </ul>
+
+    <h3>✏️ 編輯模式</h3>
+    <ul>
+      <li>可自由擺放棋子位置，自訂開局。</li>
+      <li>春與秋不可同行／同列，夏與冬亦不可同行／同列。</li>
+    </ul>
+
+    <button class="btn rules-close" onclick="closeRules()">開始對弈</button>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // GAME CONSTANTS & STATE (完全保留原始邏輯)
+  // ============================================================
+  const BOARD = 10;
+  const WIN = 1, LOSE = 2;
+  const DIRS = [[0,1],[0,-1],[1,0],[-1,0]];
+
+  const PIECE_NAMES = ['春','夏','秋','冬'];
+  const PIECE_COLORS = ['#7ecf6e','#f4a93d','#e05a3a','#6db8e8'];
+  const PIECE_GLOW = ['rgba(126,207,110,0.5)','rgba(244,169,61,0.5)','rgba(224,90,58,0.5)','rgba(109,184,232,0.5)'];
+  const PIECE_DARK = ['#4a8f3c','#b07020','#9e2e15','#3a7aaa'];
+
+  let state = null;      // { pos: [[r,c],[r,c],[r,c],[r,c]], turn: 0|1 }
+  let selected = -1;     // selected piece index
+  let legalMoves = [];   // [{pos:[r,c], enc:int}]
+  let history = [];      // stack of states for undo
+  let mode = 'pvp';      // pvp | pva | edit
+  let aiSide = 1;        // which team is AI (0=spring/summer, 1=autumn/winter)
+  let aiThinking = false;
+  let gameOver = false;
+  let editPiece = 0;
+
+  let bestMoveHighlight = null; // { from:[r,c], to:[r,c], piece:int }
+
+  // Canvas
+  const canvas = document.getElementById('board-canvas');
+  const ctx = canvas.getContext('2d');
+  const CELL = 52;
+  const PAD = 0;
+  const CSIZE = BOARD * CELL; // 520
+
+  // Responsive
+  function resizeCanvas() {
+    const avail = Math.min(window.innerWidth - 300, window.innerHeight - 200, 520);
+    const scale = avail / 520;
+    canvas.style.width = (520 * scale) + 'px';
+    canvas.style.height = (520 * scale) + 'px';
+  }
+  window.addEventListener('resize', () => { resizeCanvas(); draw(); });
+
+  // ============================================================
+  // ENCODE / DECODE (完全保留)
+  // ============================================================
+  function pos(r,c) { return r*10+c; }
+  function getR(p) { return Math.floor(p/10); }
+  function getC(p) { return p%10; }
+  function encode(p0,p1,p2,p3) { return ((p0*100+p1)*100+p2)*100+p3; }
+  function fullKey(st) {
+    const [p0,p1,p2,p3] = st.pos.map(([r,c])=>pos(r,c));
+    return encode(p0,p1,p2,p3)*2 + st.turn;
+  }
+  function decodeEnc(enc) {
+    let tmp = enc;
+    const p3 = tmp%100; tmp=Math.floor(tmp/100);
+    const p2 = tmp%100; tmp=Math.floor(tmp/100);
+    const p1 = tmp%100; tmp=Math.floor(tmp/100);
+    const p0 = tmp;
+    return [[getR(p0),getC(p0)],[getR(p1),getC(p1)],[getR(p2),getC(p2)],[getR(p3),getC(p3)]];
+  }
+
+  // ============================================================
+  // GAME LOGIC (完全保留原始走法生成)
+  // ============================================================
+  function unlock_h(mr,mc,dc,blocker_c,ux,uy) {
+    if (ux!==mr) return false;
+    if (dc>0) return (mc<uy && uy<blocker_c);
+    else      return (blocker_c<uy && uy<mc);
+  }
+  function unlock_v(mr,mc,dr,blocker_r,ux,uy) {
+    if (uy!==mc) return false;
+    if (dr>0) return (mr<ux && ux<blocker_r);
+    else      return (blocker_r<ux && ux<mr);
+  }
+
+  function getSuccessors(st) {
+    const [[r0,c0],[r1,c1],[r2,c2],[r3,c3]] = st.pos;
+    const turn = st.turn;
+    const res = [];
+
+    function tryMove(enc, piece, to) { res.push({ enc, piece, to }); }
+
+    function slideSpring() {
+      for (const [dr,dc] of DIRS) {
+        let nr=r0+dr, nc=c0+dc;
+        while (nr>=0&&nr<10&&nc>=0&&nc<10) {
+          if ((nr===r1&&nc===c1)||(nr===r2&&nc===c2)||(nr===r3&&nc===c3)) break;
+          let blocked=false;
+          if (dr===0) {
+            if (dc>0 && c2>c0 && nc>=c2) {
+              if (!unlock_h(r0,c0,dc,c2,r1,c1)&&!unlock_h(r0,c0,dc,c2,r3,c3)) blocked=true;
+            } else if (dc<0 && c2<c0 && nc<=c2) {
+              if (!unlock_h(r0,c0,dc,c2,r1,c1)&&!unlock_h(r0,c0,dc,c2,r3,c3)) blocked=true;
+            }
+          } else {
+            if (dr>0 && r2>r0 && nr>=r2) {
+              if (!unlock_v(r0,c0,dr,r2,r1,c1)&&!unlock_v(r0,c0,dr,r2,r3,c3)) blocked=true;
+            } else if (dr<0 && r2<r0 && nr<=r2) {
+              if (!unlock_v(r0,c0,dr,r2,r1,c1)&&!unlock_v(r0,c0,dr,r2,r3,c3)) blocked=true;
+            }
+          }
+          if (blocked) break;
+          if (nr!==r2||nc!==c2) tryMove(encode(pos(nr,nc),pos(r1,c1),pos(r2,c2),pos(r3,c3)), 0, [nr,nc]);
+          nr+=dr; nc+=dc;
+        }
+      }
+    }
+
+    function slideSummer() {
+      for (const [dr,dc] of DIRS) {
+        let nr=r1+dr, nc=c1+dc;
+        while (nr>=0&&nr<10&&nc>=0&&nc<10) {
+          if ((nr===r0&&nc===c0)||(nr===r2&&nc===c2)||(nr===r3&&nc===c3)) break;
+          let blocked=false;
+          if (dr===0) {
+            if (dc<0 && c3<c1 && nc<=c3) {
+              if (!unlock_h(r1,c1,dc,c3,r0,c0)&&!unlock_h(r1,c1,dc,c3,r2,c2)) blocked=true;
+            } else if (dc>0 && c3>c1 && nc>=c3) {
+              if (!unlock_h(r1,c1,dc,c3,r0,c0)&&!unlock_h(r1,c1,dc,c3,r2,c2)) blocked=true;
+            }
+          } else {
+            if (dr>0 && r3>r1 && nr>=r3) {
+              if (!unlock_v(r1,c1,dr,r3,r0,c0)&&!unlock_v(r1,c1,dr,r3,r2,c2)) blocked=true;
+            } else if (dr<0 && r3<r1 && nr<=r3) {
+              if (!unlock_v(r1,c1,dr,r3,r0,c0)&&!unlock_v(r1,c1,dr,r3,r2,c2)) blocked=true;
+            }
+          }
+          if (blocked) break;
+          if (nr!==r3||nc!==c3) tryMove(encode(pos(r0,c0),pos(nr,nc),pos(r2,c2),pos(r3,c3)), 1, [nr,nc]);
+          nr+=dr; nc+=dc;
+        }
+      }
+    }
+
+    function slideAutumn() {
+      for (const [dr,dc] of DIRS) {
+        let nr=r2+dr, nc=c2+dc;
+        while (nr>=0&&nr<10&&nc>=0&&nc<10) {
+          if ((nr===r0&&nc===c0)||(nr===r1&&nc===c1)||(nr===r3&&nc===c3)) break;
+          let blocked=false;
+          if (dr===0) {
+            if (dc<0 && c0<c2 && nc<=c0) {
+              if (!unlock_h(r2,c2,dc,c0,r3,c3)&&!unlock_h(r2,c2,dc,c0,r1,c1)) blocked=true;
+            } else if (dc>0 && c0>c2 && nc>=c0) {
+              if (!unlock_h(r2,c2,dc,c0,r3,c3)&&!unlock_h(r2,c2,dc,c0,r1,c1)) blocked=true;
+            }
+          } else {
+            if (dr<0 && r0<r2 && nr<=r0) {
+              if (!unlock_v(r2,c2,dr,r0,r3,c3)&&!unlock_v(r2,c2,dr,r0,r1,c1)) blocked=true;
+            } else if (dr>0 && r0>r2 && nr>=r0) {
+              if (!unlock_v(r2,c2,dr,r0,r3,c3)&&!unlock_v(r2,c2,dr,r0,r1,c1)) blocked=true;
+            }
+          }
+          if (blocked) break;
+          if (nr!==r0||nc!==c0) tryMove(encode(pos(r0,c0),pos(r1,c1),pos(nr,nc),pos(r3,c3)), 2, [nr,nc]);
+          nr+=dr; nc+=dc;
+        }
+      }
+    }
+
+    function slideWinter() {
+      for (const [dr,dc] of DIRS) {
+        let nr=r3+dr, nc=c3+dc;
+        while (nr>=0&&nr<10&&nc>=0&&nc<10) {
+          if ((nr===r0&&nc===c0)||(nr===r1&&nc===c1)||(nr===r2&&nc===c2)) break;
+          let blocked=false;
+          if (dr===0) {
+            if (dc>0 && c1>c3 && nc>=c1) {
+              if (!unlock_h(r3,c3,dc,c1,r2,c2)&&!unlock_h(r3,c3,dc,c1,r0,c0)) blocked=true;
+            } else if (dc<0 && c1<c3 && nc<=c1) {
+              if (!unlock_h(r3,c3,dc,c1,r2,c2)&&!unlock_h(r3,c3,dc,c1,r0,c0)) blocked=true;
+            }
+          } else {
+            if (dr<0 && r1<r3 && nr<=r1) {
+              if (!unlock_v(r3,c3,dr,r1,r2,c2)&&!unlock_v(r3,c3,dr,r1,r0,c0)) blocked=true;
+            } else if (dr>0 && r1>r3 && nr>=r1) {
+              if (!unlock_v(r3,c3,dr,r1,r2,c2)&&!unlock_v(r3,c3,dr,r1,r0,c0)) blocked=true;
+            }
+          }
+          if (blocked) break;
+          if (nr!==r1||nc!==c1) tryMove(encode(pos(r0,c0),pos(r1,c1),pos(r2,c2),pos(nr,nc)), 3, [nr,nc]);
+          nr+=dr; nc+=dc;
+        }
+      }
+    }
+
+    if (turn===0) { slideSpring(); slideSummer(); }
+    else           { slideAutumn(); slideWinter(); }
+
+    return res;
+  }
+
+  // ============================================================
+  // AI: Alpha-Beta 剪枝 (取代資料庫)
+  // ============================================================
+
+  // 啟發式評估函數：正值對春夏方有利，負值對秋冬方有利
+  function evaluatePosition(st) {
+    const succs = getSuccessors(st);
+    if (succs.length === 0) {
+      // 當前玩家無法移動，直接判負
+      return st.turn === 0 ? -10000 : 10000;
+    }
+
+    let score = 0;
+    const [spring, summer, autumn, winter] = st.pos;
+
+    // 1. 中心偏好：棋子越靠近棋盤中央越好
+    for (let i = 0; i < 4; i++) {
+      const [r, c] = st.pos[i];
+      const centerDist = Math.abs(r - 4.5) + Math.abs(c - 4.5);
+      if (i < 2) score += (10 - centerDist) * 1.5;   // 春夏方
+      else score -= (10 - centerDist) * 1.5;         // 秋冬方
+    }
+
+    // 2. 同線懲罰：春/秋不可同線，夏/冬不可同線
+    if (spring[0] === autumn[0] || spring[1] === autumn[1]) score += (st.turn === 0 ? -20 : 20);
+    if (summer[0] === winter[0] || summer[1] === winter[1]) score += (st.turn === 0 ? -20 : 20);
+
+    // 3. 機動性：當前方可走步數越多越有利
+    const mySucc = succs.filter(m => (st.turn === 0 && m.piece < 2) || (st.turn === 1 && m.piece >= 2));
+    score += mySucc.length * 8;
+
+    return st.turn === 0 ? score : -score;
+  }
+
+  // Alpha-Beta 搜尋 (自動最深深度)
+  let abNodesCount = 0;
+  const MAX_DEPTH = 5;  // 固定深度 5，運算速度與棋力平衡
+
+  function alphaBeta(st, depth, alpha, beta, isMaximizingPlayer) {
+    abNodesCount++;
+    if (depth === 0) return evaluatePosition(st);
+
+    const moves = getSuccessors(st);
+    if (moves.length === 0) {
+      // 無步可走：當前玩家輸
+      return isMaximizingPlayer ? -10000 : 10000;
+    }
+
+    if (isMaximizingPlayer) {
+      let value = -Infinity;
+      for (const move of moves) {
+        const nextState = { pos: decodeEnc(move.enc), turn: 1 - st.turn };
+        const evalScore = alphaBeta(nextState, depth - 1, alpha, beta, false);
+        value = Math.max(value, evalScore);
+        alpha = Math.max(alpha, value);
+        if (alpha >= beta) break; // β 剪枝
+      }
+      return value;
+    } else {
+      let value = Infinity;
+      for (const move of moves) {
+        const nextState = { pos: decodeEnc(move.enc), turn: 1 - st.turn };
+        const evalScore = alphaBeta(nextState, depth - 1, alpha, beta, true);
+        value = Math.min(value, evalScore);
+        beta = Math.min(beta, value);
+        if (beta <= alpha) break; // α 剪枝
+      }
+      return value;
+    }
+  }
+
+  // 取得最佳走法 (使用 Alpha-Beta)
+  function getBestMoveAB(st, strength) {
+    if (strength === 'random') {
+      const moves = getSuccessors(st);
+      if (moves.length === 0) return null;
+      return moves[Math.floor(Math.random() * moves.length)];
+    }
+
+    const moves = getSuccessors(st);
+    if (moves.length === 0) return null;
+
+    let bestValue = -Infinity;
+    let bestMove = moves[0];
+    const depth = MAX_DEPTH;
+
+    for (const move of moves) {
+      const nextState = { pos: decodeEnc(move.enc), turn: 1 - st.turn };
+      const moveValue = alphaBeta(nextState, depth - 1, -Infinity, Infinity, false);
+      if (moveValue > bestValue) {
+        bestValue = moveValue;
+        bestMove = move;
+      }
+    }
+    return bestMove;
+  }
+
+  // ============================================================
+  // STATE MANAGEMENT (保留原始邏輯)
+  // ============================================================
+  function initState() {
+    return {
+      pos: [[0,0],[0,9],[9,9],[9,0]],
+      turn: 0
+    };
+  }
+
+  function cloneState(st) {
+    return { pos: st.pos.map(p=>[...p]), turn: st.turn };
+  }
+
+  function applyMove(st, moveEnc) {
+    const newPos = decodeEnc(moveEnc);
+    return { pos: newPos, turn: 1 - st.turn };
+  }
+
+  function resetGame() {
+    state = initState();
+    selected = -1;
+    legalMoves = [];
+    history = [];
+    gameOver = false;
+    aiThinking = false;
+    bestMoveHighlight = null;
+    document.getElementById('win-overlay').classList.remove('show');
+    document.getElementById('thinking-bar').classList.remove('show');
+    document.getElementById('move-log').innerHTML = '';
+    updateUI();
+    draw();
+
+    if (mode === 'pva') {
+      let actualAiSide = aiSide;
+      if (aiSide === 2) actualAiSide = Math.random() < 0.5 ? 0 : 1;
+      window._actualAiSide = actualAiSide;
+      if (state.turn === actualAiSide) {
+        setTimeout(doAiMove, 500);
+      }
+    }
+  }
+
+  // 游戏说明弹窗
+  function showGameRules() {
+    document.getElementById('rules-overlay').classList.add('show');
+  }
+
+  function closeRules() {
+    document.getElementById('rules-overlay').classList.remove('show');
+  }
+
+  // 点击弹窗背景关闭（可选）
+  document.getElementById('rules-overlay')?.addEventListener('click', function(e) {
+    if (e.target === this) closeRules();
+  });
+
+  function doMove(enc, pieceIdx) {
+    bestMoveHighlight = null;
+    history.push({ state: cloneState(state), selected, legalMoves: [...legalMoves] });
+    const prevPos = [...state.pos[pieceIdx]];
+    state = applyMove(state, enc);
+    selected = -1;
+    legalMoves = [];
+    addLog(pieceIdx, prevPos, state.pos[pieceIdx]);
+    updateUI();
+    draw();
+
+    const succs = getSuccessors(state);
+    if (succs.length === 0) {
+      const loserTurn = state.turn;
+      const winner = loserTurn === 0 ? '秋冬方' : '春夏方';
+      const loser = loserTurn === 0 ? '春夏方' : '秋冬方';
+      gameOver = true;
+      setTimeout(() => {
+        document.getElementById('win-title').textContent = `${winner} 獲勝！`;
+        document.getElementById('win-sub').textContent = `${loser}無法移動`;
+        document.getElementById('win-overlay').classList.add('show');
+      }, 400);
+      addLog(-1, null, null, `${winner}獲勝！${loser}無法移動。`);
+      return;
+    }
+
+    if (mode === 'pva' && !gameOver && state.turn === window._actualAiSide) {
+      setTimeout(doAiMove, 400);
+    }
+  }
+
+  async function doAiMove() {
+    if (gameOver) return;
+    const succs = getSuccessors(state);
+    if (succs.length === 0) return;
+
+    aiThinking = true;
+    document.getElementById('thinking-bar').classList.add('show');
+
+    setTimeout(() => {
+      const strength = document.getElementById('ai-strength').value;
+      let chosen = null;
+
+      if (strength === 'alpha_max') {
+        chosen = getBestMoveAB(state, 'alpha');
+      } else if (strength === 'random') {
+        chosen = getBestMoveAB(state, 'random');
+      }
+
+      if (!chosen && succs.length > 0) {
+        chosen = succs[Math.floor(Math.random() * succs.length)];
+      }
+
+      aiThinking = false;
+      document.getElementById('thinking-bar').classList.remove('show');
+      if (chosen) doMove(chosen.enc, chosen.piece);
+    }, 500 + Math.random() * 300);
+  }
+
+  function undo() {
+    if (history.length === 0) { showToast('沒有可悔棋的步驟'); return; }
+
+    if (mode === 'pva' && history.length >= 2) {
+      history.pop();
+      const h = history.pop();
+      state = h.state;
+    } else {
+      const h = history.pop();
+      state = h.state;
+    }
+
+    selected = -1;
+    legalMoves = [];
+    gameOver = false;
+    document.getElementById('win-overlay').classList.remove('show');
+
+    const log = document.getElementById('move-log');
+    if (mode === 'pva' && log.children.length >= 2) {
+      log.removeChild(log.lastChild);
+      log.removeChild(log.lastChild);
+    } else if (log.children.length >= 1) {
+      log.removeChild(log.lastChild);
+    }
+
+    updateUI();
+    draw();
+    showToast('悔棋成功');
+  }
+
+  // 分析按鈕：顯示建議走法
+  function analyzePosition() {
+    if (!state) return;
+    bestMoveHighlight = null;
+    const strength = document.getElementById('ai-strength').value;
+    const best = getBestMoveAB(state, strength === 'random' ? 'random' : 'alpha');
+    if (best) {
+      bestMoveHighlight = {
+        from: state.pos[best.piece],
+        to: best.to,
+        piece: best.piece
+      };
+      showToast(`建議走法：${PIECE_NAMES[best.piece]} → (${best.to[0]},${best.to[1]})`);
+      draw();
+    } else {
+      showToast('無合法走法可分析');
+    }
+  }
+
+  // ============================================================
+  // 繪圖與UI (完全保留原始風格)
+  // ============================================================
+  function draw() {
+    ctx.clearRect(0, 0, CSIZE, CSIZE);
+    ctx.fillStyle = '#101510';
+    ctx.fillRect(0, 0, CSIZE, CSIZE);
+
+    for (let r=0; r<BOARD; r++) {
+      for (let c=0; c<BOARD; c++) {
+        const x = c*CELL, y = r*CELL;
+        ctx.fillStyle = (r+c)%2===0 ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.1)';
+        ctx.fillRect(x, y, CELL, CELL);
+      }
+    }
+
+    ctx.strokeStyle = '#1e2a1e';
+    ctx.lineWidth = 0.8;
+    for (let i=0; i<=BOARD; i++) {
+      ctx.beginPath(); ctx.moveTo(i*CELL, 0); ctx.lineTo(i*CELL, CSIZE); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i*CELL); ctx.lineTo(CSIZE, i*CELL); ctx.stroke();
+    }
+
+    if (selected >= 0 && !gameOver && mode !== 'edit') {
+      const [r,c] = state.pos[selected];
+      const [x,y] = [c*CELL+CELL/2, r*CELL+CELL/2];
+      ctx.beginPath(); ctx.arc(x, y, CELL*0.42, 0, Math.PI*2);
+      ctx.fillStyle = PIECE_GLOW[selected].replace('0.5','0.12');
+      ctx.fill();
+      for (const m of legalMoves) {
+        const [mr,mc] = m.to;
+        const [mx,my] = [mc*CELL+CELL/2, mr*CELL+CELL/2];
+        ctx.beginPath(); ctx.arc(mx, my, 5, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,200,0.5)';
+        ctx.fill();
+        ctx.beginPath(); ctx.arc(mx, my, CELL*0.44, 0, Math.PI*2);
+        ctx.strokeStyle = 'rgba(255,255,200,0.15)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    if (bestMoveHighlight) {
+      const [fr, fc] = bestMoveHighlight.from;
+      const [tr, tc] = bestMoveHighlight.to;
+      const color = PIECE_COLORS[bestMoveHighlight.piece];
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 3]);
+      ctx.strokeRect(tc * CELL + 3, tr * CELL + 3, CELL - 6, CELL - 6);
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(fc*CELL+CELL/2, fr*CELL+CELL/2);
+      ctx.lineTo(tc*CELL+CELL/2, tr*CELL+CELL/2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.7;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      const angle = Math.atan2(tr*CELL+CELL/2 - (fr*CELL+CELL/2), tc*CELL+CELL/2 - (fc*CELL+CELL/2));
+      ctx.beginPath();
+      ctx.moveTo(tc*CELL+CELL/2, tr*CELL+CELL/2);
+      ctx.lineTo(tc*CELL+CELL/2 - 12 * Math.cos(angle - 0.4), tr*CELL+CELL/2 - 12 * Math.sin(angle - 0.4));
+      ctx.lineTo(tc*CELL+CELL/2 - 12 * Math.cos(angle + 0.4), tr*CELL+CELL/2 - 12 * Math.sin(angle + 0.4));
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    if (state) {
+      for (let i=0; i<4; i++) {
+        const [r,c] = state.pos[i];
+        const [x,y] = [c*CELL+CELL/2, r*CELL+CELL/2];
+        const color = PIECE_COLORS[i];
+        const radius = (selected===i && mode!=='edit') ? CELL*0.36 : CELL*0.32;
+        ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2);
+        const grad = ctx.createRadialGradient(x-radius*0.3, y-radius*0.3, 0, x, y, radius);
+        grad.addColorStop(0, color);
+        grad.addColorStop(1, PIECE_DARK[i]);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = (selected===i && mode!=='edit') ? '#fff' : 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = (selected===i && mode!=='edit') ? 2.5 : 1.5;
+        ctx.stroke();
+        ctx.fillStyle = '#000';
+        ctx.font = `bold ${Math.round(CELL*0.32)}px "Noto Serif TC", serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(PIECE_NAMES[i], x, y+1);
+        ctx.beginPath();
+        ctx.arc(x + radius*0.65, y - radius*0.65, 3, 0, Math.PI*2);
+        ctx.fillStyle = i<2 ? '#7ecf6e' : '#e05a3a';
+        ctx.fill();
+      }
+    }
+  }
+
+  function selectPiece(idx) {
+    if (gameOver) return;
+    if (mode === 'edit') {
+      editPiece = idx;
+      document.getElementById('edit-piece').value = idx;
+      draw();
+      return;
+    }
+    const isSpringTeam = idx < 2;
+    if ((state.turn === 0 && !isSpringTeam) || (state.turn === 1 && isSpringTeam)) {
+      showToast('不是你的棋子！');
+      return;
+    }
+    if (mode === 'pva') {
+      const humanTurn = 1 - window._actualAiSide;
+      if (state.turn !== humanTurn) return;
+    }
+    if (selected === idx) {
+      selected = -1;
+      legalMoves = [];
+    } else {
+      selected = idx;
+      legalMoves = getSuccessors(state).filter(m => m.piece === idx);
+      if (legalMoves.length === 0) {
+        showToast(`${PIECE_NAMES[idx]} 無法移動`);
+        selected = -1;
+      }
+    }
+    draw();
+  }
+
+  function clickCell(r, c) {
+    if (gameOver && mode !== 'edit') return;
+    if (mode === 'edit') {
+      handleEditClick(r, c);
+      return;
+    }
+    if (aiThinking) return;
+    for (let i=0; i<4; i++) {
+      const [pr, pc] = state.pos[i];
+      if (pr===r && pc===c) {
+        selectPiece(i);
+        return;
+      }
+    }
+    if (selected >= 0) {
+      const move = legalMoves.find(m => m.to[0]===r && m.to[1]===c);
+      if (move) {
+        doMove(move.enc, selected);
+        return;
+      }
+      selected = -1;
+      legalMoves = [];
+      draw();
+    }
+  }
+
+  function handleEditClick(r, c) {
+    for (let i=0; i<4; i++) {
+      if (i !== editPiece && state.pos[i][0]===r && state.pos[i][1]===c) {
+        editPiece = i;
+        document.getElementById('edit-piece').value = i;
+        draw();
+        return;
+      }
+    }
+    state.pos[editPiece] = [r, c];
+    updateUI();
+    draw();
+  }
+
+  function confirmEdit() {
+    const [[r0,c0],[r1,c1],[r2,c2],[r3,c3]] = state.pos;
+    if (r0 === r2 || c0 === c2) {
+      showToast('❌ 春與秋不可在同一直線（同行或同列）！');
+      return;
+    }
+    if (r1 === r3 || c1 === c3) {
+      showToast('❌ 夏與冬不可在同一直線（同行或同列）！');
+      return;
+    }
+    state.turn = parseInt(document.getElementById('edit-turn').value);
+    gameOver = false;
+    selected = -1;
+    legalMoves = [];
+    history = [];
+    document.getElementById('move-log').innerHTML = '';
+    document.getElementById('win-overlay').classList.remove('show');
+    setMode('pvp', true);
+    updateUI();
+    draw();
+    showToast('✅ 局面已設定，開始對弈！');
+  }
+
+  function resetEdit() {
+    state = initState();
+    updateUI();
+    draw();
+  }
+
+  function setMode(m, keepState) {
+    mode = m;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-' + m).classList.add('active');
+    const aiCard = document.getElementById('ai-settings-card');
+    const editCard = document.getElementById('edit-card');
+    aiCard.style.display = m === 'pva' ? 'block' : 'none';
+    editCard.style.display = m === 'edit' ? 'block' : 'none';
+    if (m !== 'edit' && !keepState) {
+      resetGame();
+    } else {
+      gameOver = false;
+      selected = -1;
+      legalMoves = [];
+      draw();
+    }
+  }
+
+  function updateUI() {
+    const names = ['spring','summer','autumn','winter'];
+    for (let i=0; i<4; i++) {
+      const [r,c] = state.pos[i];
+      document.getElementById(`pos-${names[i]}`).textContent = `(${r},${c})`;
+    }
+    const turnNames = ['春夏方', '秋冬方'];
+    const el = document.getElementById('turn-info');
+    if (gameOver) {
+      el.textContent = '遊戲結束';
+    } else {
+      el.textContent = `${turnNames[state.turn]} · 請選擇棋子`;
+    }
+    document.getElementById('sub-info').innerHTML = `春(${state.pos[0]}) 夏(${state.pos[1]}) 秋(${state.pos[2]}) 冬(${state.pos[3]})`;
+    document.getElementById('btn-undo').disabled = history.length === 0;
+    document.getElementById('state-result').textContent = 'Alpha-Beta 引擎就緒';
+  }
+
+  function addLog(pieceIdx, from, to, sys) {
+    const log = document.getElementById('move-log');
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    const n = log.children.length + 1;
+    if (sys) {
+      div.classList.add('system');
+      div.textContent = sys;
+    } else {
+      const cls = ['spring','summer','autumn','winter'][pieceIdx];
+      div.classList.add(cls);
+      div.textContent = `${n}. ${PIECE_NAMES[pieceIdx]} (${from[0]},${from[1]}) → (${to[0]},${to[1]})`;
+    }
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = CSIZE / rect.width;
+    const scaleY = CSIZE / rect.height;
+    const cx = (e.clientX - rect.left) * scaleX;
+    const cy = (e.clientY - rect.top) * scaleY;
+    const c = Math.floor(cx / CELL);
+    const r = Math.floor(cy / CELL);
+    if (r>=0&&r<BOARD&&c>=0&&c<BOARD) clickCell(r, c);
+  });
+
+  document.getElementById('edit-piece').addEventListener('change', e => {
+    editPiece = parseInt(e.target.value);
+    draw();
+  });
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  resizeCanvas();
+  setMode('pvp');
+</script>
+</body>
+</html>

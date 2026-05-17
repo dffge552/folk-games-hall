@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>靶棋 BACHI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Courier+Prime:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0d0d0f;
+    --panel: #13131a;
+    --border: #2a2a3a;
+    --accent: #c8a84b;
+    --accent2: #7b6fa0;
+    --black-piece: #3a0a0a;
+    --black-piece-border: #c84b4b;
+    --white-piece: #e8e0d0;
+    --white-piece-border: #c8a84b;
+    --board-line: #3a3a5a;
+    --win-glow: #c8a84b;
+    --text: #d0ccc0;
+    --text-dim: #6a6a8a;
+    --red: #c84b4b;
+    --green: #4bc87b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif TC', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(123,111,160,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(200,168,75,0.06) 0%, transparent 60%);
+  }
+
+  h1 {
+    font-size: 2.8rem;
+    font-weight: 900;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-shadow: 0 0 40px rgba(200,168,75,0.4);
+    margin-bottom: 4px;
+    font-family: 'Courier Prime', monospace;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    letter-spacing: 0.5em;
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    text-transform: uppercase;
+  }
+
+  .main-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 1100px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ── 左側控制面板 ── */
+  .left-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 200px;
+    flex: 0 0 200px;
+  }
+
+  .panel-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+
+  .panel-title {
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-family: 'Courier Prime', monospace;
+  }
+
+  .mode-btn {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    margin-bottom: 6px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.88rem;
+    text-align: left;
+    transition: all 0.2s;
+  }
+  .mode-btn:hover { border-color: var(--accent2); color: var(--text); }
+  .mode-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(200,168,75,0.07); }
+
+  .action-btn {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    margin-bottom: 6px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.88rem;
+    transition: all 0.2s;
+  }
+  .action-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .action-btn.danger { }
+  .action-btn.danger:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+
+  /* ── 中間棋盤 ── */
+  .board-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .status-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    text-align: center;
+    min-width: 360px;
+    position: relative;
+  }
+
+  .status-bar .turn-indicator {
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .status-bar .phase-tag {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    margin-left: 8px;
+    font-family: 'Courier Prime', monospace;
+  }
+
+  #board-svg {
+    cursor: pointer;
+    filter: drop-shadow(0 0 30px rgba(200,168,75,0.08));
+  }
+
+  /* ── 右側面板 ── */
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 200px;
+    flex: 0 0 200px;
+  }
+
+  .player-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    transition: border-color 0.3s;
+  }
+  .player-card.active-player {
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(200,168,75,0.12);
+  }
+  .player-card .player-name {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+  .player-card .player-detail {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-family: 'Courier Prime', monospace;
+  }
+
+  /* AI level */
+  .ai-depth-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .depth-btn {
+    flex: 1;
+    padding: 5px 4px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-family: 'Courier Prime', monospace;
+    transition: all 0.2s;
+  }
+  .depth-btn.active { border-color: var(--accent2); color: var(--accent2); }
+  .depth-btn:hover { border-color: var(--text-dim); color: var(--text); }
+
+  /* Move history */
+  .move-list {
+    max-height: 180px;
+    overflow-y: auto;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+  .move-list::-webkit-scrollbar { width: 4px; }
+  .move-list::-webkit-scrollbar-track { background: transparent; }
+  .move-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .move-entry { color: var(--text-dim); }
+  .move-entry.black { color: var(--red); }
+  .move-entry.white { color: var(--accent); }
+
+  /* AI analysis */
+  .analysis-box {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+  .analysis-box .eval-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin: 6px 0;
+    overflow: hidden;
+  }
+  .analysis-box .eval-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s, background 0.4s;
+  }
+
+  /* Edit mode highlight */
+  .edit-hint {
+    font-size: 0.75rem;
+    color: var(--accent2);
+    font-family: 'Courier Prime', monospace;
+    margin-top: 6px;
+    text-align: center;
+  }
+
+  /* Win overlay */
+  .win-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  .win-overlay.show { opacity: 1; pointer-events: all; }
+  .win-box {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 40px 56px;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(200,168,75,0.3);
+  }
+  .win-box h2 { font-size: 2rem; color: var(--accent); margin-bottom: 8px; }
+  .win-box p { color: var(--text-dim); margin-bottom: 20px; font-size: 0.9rem; }
+  .win-box button {
+    padding: 10px 28px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Noto Serif TC', serif;
+    font-size: 1rem;
+    transition: all 0.2s;
+    margin: 0 6px;
+  }
+  .win-box button:hover { background: rgba(200,168,75,0.15); }
+
+  /* Loading */
+  .ai-thinking {
+    display: inline-block;
+    font-size: 0.75rem;
+    color: var(--accent2);
+    font-family: 'Courier Prime', monospace;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+  /* Edit mode indicator */
+  #edit-mode-bar {
+    display: none;
+    background: rgba(123,111,160,0.15);
+    border: 1px solid var(--accent2);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    color: var(--accent2);
+    text-align: center;
+    font-family: 'Courier Prime', monospace;
+  }
+
+  select {
+    width: 100%;
+    padding: 7px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 5px;
+    font-family: 'Noto Serif TC', serif;
+    font-size: 0.85rem;
+    margin-top: 4px;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: var(--accent2); }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 6px 0;
+  }
+
+  /* AI使用baqi.bin的提示 */
+  .bin-status {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.72rem;
+    padding: 5px 8px;
+    border-radius: 4px;
+    margin-top: 6px;
+  }
+  .bin-status.ok { color: var(--green); background: rgba(75,200,123,0.08); border: 1px solid rgba(75,200,123,0.2); }
+  .bin-status.fail { color: var(--text-dim); background: rgba(200,75,75,0.08); border: 1px solid rgba(200,75,75,0.2); }
+
+  /* 靶棋規則彈窗 */
+  .rules-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .rules-modal.visible {
+    display: flex;
+  }
+  .rules-box {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    max-width: 480px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 0 60px rgba(200,168,75,0.3);
+  }
+  .rules-header {
+    background: #1a1a2a;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+  }
+  .rules-header h2 {
+    color: var(--accent);
+    font-size: 1.3rem;
+    letter-spacing: 0.1em;
+    margin: 0;
+    font-family: 'Courier Prime', monospace;
+  }
+  .rules-close {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 1.5rem;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .rules-close:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .rules-content {
+    padding: 20px 24px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .rules-content h3 {
+    color: var(--accent);
+    font-size: 1rem;
+    margin: 16px 0 8px 0;
+    border-left: 3px solid var(--accent);
+    padding-left: 10px;
+  }
+  .rules-content h3:first-of-type {
+    margin-top: 0;
+  }
+  .rules-content ul {
+    margin: 6px 0 12px 20px;
+  }
+  .rules-content li {
+    margin: 6px 0;
+    color: var(--text-dim);
+  }
+  .rules-content .highlight {
+    color: var(--accent);
+  }
+  .rules-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 14px 0;
+  }
+  .rules-footer {
+    background: #1a1a2a;
+    padding: 12px 20px;
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    font-family: 'Courier Prime', monospace;
+  }
+</style>
+</head>
+<body>
+
+<h1>靶棋</h1>
+<div class="subtitle">BACHI · TARGET CHESS</div>
+
+<div class="main-layout">
+
+  <!-- 左側 -->
+  <div class="left-panel">
+    <div class="panel-box">
+      <div class="panel-title">模式</div>
+      <button class="mode-btn active" id="btn-pvp" onclick="setMode('pvp')">⚔ 雙人對戰</button>
+      <button class="mode-btn" id="btn-pva" onclick="setMode('pva')">🤖 人機對戰</button>
+    </div>
+
+    <div class="panel-box" id="ai-side-box">
+      <div class="panel-title">AI 執</div>
+      <select id="ai-color-select" onchange="setAiColor(this.value)">
+        <option value="white">白方 (後手)</option>
+        <option value="black">黑方 (先手)</option>
+      </select>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-title">AI 強度</div>
+      <div class="ai-depth-row">
+        <button class="depth-btn active" onclick="setDepth(2)">快</button>
+        <button class="depth-btn" onclick="setDepth(4)">中</button>
+        <button class="depth-btn" onclick="setDepth(6)">強</button>
+      </div>
+      <div id="bin-status" class="bin-status fail">baqi.bin 未載入 (使用內建AI)</div>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-title">操作</div>
+      <button class="action-btn" id="btn-undo" onclick="undoMove()">↩ 悔棋</button>
+      <button class="action-btn" id="btn-edit" onclick="toggleEdit()">✏ 編輯局面</button>
+      <button class="action-btn" id="btn-analyze" onclick="analyzePosition()">🔍 AI分析</button>
+      <button class="action-btn" id="btn-rules" onclick="openRulesModal()">
+        📖 遊戲規則
+      </button>
+      <hr class="divider">
+      <button class="action-btn danger" onclick="newGame()">↺ 新對局</button>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-title">規則</div>
+      <div style="font-size:0.73rem;color:var(--text-dim);line-height:1.8;font-family:'Courier Prime',monospace;">
+        13點棋盤<br>
+        各放4子<br>
+        佔滿同圓4點獲勝<br>
+        沿線移動1步<br>
+        黑先布子
+      </div>
+    </div>
+  </div>
+
+  <!-- 中間棋盤 -->
+  <div class="board-area">
+    <div class="status-bar">
+      <span id="status-text" class="turn-indicator">黑方布子</span>
+      <span id="status-phase" class="phase-tag">布子階段</span>
+      <div id="edit-mode-bar">✏ 編輯模式 — 點擊格點放/移黑子 | 右鍵放白子 | 再次點擊已有子移除</div>
+    </div>
+
+    <svg id="board-svg" width="420" height="420" viewBox="-210 -210 420 420" xmlns="http://www.w3.org/2000/svg">
+      <!-- 定義 -->
+      <defs>
+        <radialGradient id="bg-grad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1a1a2a"/>
+          <stop offset="100%" stop-color="#0d0d12"/>
+        </radialGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="piece-shadow">
+          <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.6)"/>
+        </filter>
+      </defs>
+
+      <!-- 背景 -->
+      <circle cx="0" cy="0" r="205" fill="url(#bg-grad)" stroke="var(--border)" stroke-width="1"/>
+
+      <!-- 圓弧 -->
+      <circle id="arc-inner" cx="0" cy="0" r="60" fill="none" stroke="var(--board-line)" stroke-width="1.5"/>
+      <circle id="arc-mid" cx="0" cy="0" r="120" fill="none" stroke="var(--board-line)" stroke-width="1.5"/>
+      <circle id="arc-outer" cx="0" cy="0" r="180" fill="none" stroke="var(--board-line)" stroke-width="1.5"/>
+
+      <!-- 十字線 -->
+      <line x1="0" y1="-180" x2="0" y2="180" stroke="var(--board-line)" stroke-width="1.5"/>
+      <line x1="-180" y1="0" x2="180" y2="0" stroke="var(--board-line)" stroke-width="1.5"/>
+
+      <!-- 裝飾性刻度 -->
+      <g stroke="var(--board-line)" stroke-width="0.5" opacity="0.4">
+        <line x1="-3" y1="-200" x2="3" y2="-200"/>
+        <line x1="-3" y1="200" x2="3" y2="200"/>
+        <line x1="-200" y1="-3" x2="-200" y2="3"/>
+        <line x1="200" y1="-3" x2="200" y2="3"/>
+      </g>
+
+      <!-- 圓圈標籤 -->
+      <text x="-8" y="-192" fill="var(--text-dim)" font-size="9" font-family="Courier Prime" opacity="0.5">外</text>
+      <text x="-8" y="-132" fill="var(--text-dim)" font-size="9" font-family="Courier Prime" opacity="0.5">中</text>
+      <text x="-8" y="-72" fill="var(--text-dim)" font-size="9" font-family="Courier Prime" opacity="0.5">內</text>
+
+      <!-- 棋盤格點 (由JS動態繪製棋子) -->
+      <g id="nodes-layer"></g>
+      <!-- 棋子層 -->
+      <g id="pieces-layer"></g>
+      <!-- 移動提示層 -->
+      <g id="hints-layer"></g>
+    </svg>
+
+    <div style="font-size:0.72rem;color:var(--text-dim);font-family:'Courier Prime',monospace;text-align:center;">
+      0=圓心 | 1-4=內圓 | 5-8=中圓 | 9-12=外圓
+    </div>
+  </div>
+
+  <!-- 右側 -->
+  <div class="right-panel">
+    <div class="player-card" id="card-black">
+      <div class="player-name" style="color:var(--red)">⬟ 黑方 (先手)</div>
+      <div class="player-detail" id="black-detail">已放 0/4 子</div>
+    </div>
+
+    <div class="player-card" id="card-white">
+      <div class="player-name" style="color:var(--accent)">⬡ 白方 (後手)</div>
+      <div class="player-detail" id="white-detail">已放 0/4 子</div>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-title">AI 分析</div>
+      <div id="analysis-box" class="analysis-box">
+        <div>等待分析...</div>
+      </div>
+    </div>
+
+    <div class="panel-box">
+      <div class="panel-title">對局紀錄</div>
+      <div class="move-list" id="move-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Win Overlay -->
+<div class="win-overlay" id="win-overlay">
+  <div class="win-box">
+    <h2 id="win-title">黑方獲勝！</h2>
+    <p id="win-desc">佔滿內圓，大獲全勝</p>
+    <button onclick="newGame()">新對局</button>
+    <button onclick="closeWin()">查看棋盤</button>
+  </div>
+</div>
+
+<!-- 靶棋規則彈窗 -->
+<div class="rules-modal" id="rulesModal">
+  <div class="rules-box">
+    <div class="rules-header">
+      <h2>🎯 靶棋 BACHI · 遊戲規則</h2>
+      <button class="rules-close" onclick="closeRulesModal()">✕</button>
+    </div>
+    <div class="rules-content">
+      <h3>📐 棋盤</h3>
+      <ul>
+        <li>共 <span class="highlight">13 個棋位</span></li>
+        <li>圓心 (0) + 內圓 (1-4) + 中圓 (5-8) + 外圓 (9-12)</li>
+        <li>棋位之間有線相連，只能沿線移動</li>
+      </ul>
+
+      <h3>⚫ 遊戲流程</h3>
+      <ul>
+        <li><span class="highlight">① 布子階段</span>：黑白輪流放子，各放 <strong>4 子</strong>（黑方先放）</li>
+        <li><span class="highlight">② 走子階段</span>：布子結束後，輪流沿線移動 <strong>1 步</strong>到相鄰空位（黑方先走）</li>
+        <li>❌ 沒有吃子機制</li>
+      </ul>
+
+      <h3>🏆 勝利條件</h3>
+      <ul>
+        <li>佔滿 <span class="highlight">內圓 (1-4)</span> 的所有 4 個點 → 獲勝</li>
+        <li>佔滿 <span class="highlight">中圓 (5-8)</span> 的所有 4 個點 → 獲勝</li>
+        <li>佔滿 <span class="highlight">外圓 (9-12)</span> 的所有 4 個點 → 獲勝</li>
+        <li>若對手<span class="highlight">無路可走</span>（所有棋子被堵住）→ 獲勝</li>
+      </ul>
+
+      <h3>🖱️ 操作方式</h3>
+      <ul>
+        <li><strong>布子/走子</strong>：直接點擊棋位</li>
+        <li><strong>編輯模式</strong>：點擊「編輯局面」後，左鍵放黑子/右鍵放白子</li>
+        <li><strong>AI分析</strong>：顯示最佳建議走法</li>
+        <li><strong>悔棋</strong>：可退回上一步</li>
+      </ul>
+
+      <div class="rules-divider"></div>
+      <div style="text-align:center; font-size:0.75rem;">
+        ⚔️ 佔領圓環 · 智取先機 ⚔️
+      </div>
+    </div>
+    <div class="rules-footer">
+      靶棋 BACHI · 同心圓策略遊戲
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+//  靶棋遊戲引擎
+// ══════════════════════════════════════════════════════════════════════
+
+// 13個點的坐標
+const POINT_POS = [
+  [0, 0],         // 0 圓心
+  [0, -60],       // 1 內上
+  [60, 0],        // 2 內右
+  [0, 60],        // 3 內下
+  [-60, 0],       // 4 內左
+  [0, -120],      // 5 中上
+  [120, 0],       // 6 中右
+  [0, 120],       // 7 中下
+  [-120, 0],      // 8 中左
+  [0, -180],      // 9 外上
+  [180, 0],       // 10 外右
+  [0, 180],       // 11 外下
+  [-180, 0],      // 12 外左
+];
+
+const POINT_NAMES = [
+  '圓心',
+  '內上','內右','內下','內左',
+  '中上','中右','中下','中左',
+  '外上','外右','外下','外左'
+];
+
+// 鄰接表
+const ADJ = [
+  [1,2,3,4],
+  [0,2,4,5],
+  [0,1,3,6],
+  [0,2,4,7],
+  [0,1,3,8],
+  [1,6,8,9],
+  [2,5,7,10],
+  [3,6,8,11],
+  [4,5,7,12],
+  [5,10,12],
+  [6,9,11],
+  [7,10,12],
+  [8,9,11],
+];
+
+// 勝利條件
+const WIN_MASKS = [
+  (1<<1)|(1<<2)|(1<<3)|(1<<4),
+  (1<<5)|(1<<6)|(1<<7)|(1<<8),
+  (1<<9)|(1<<10)|(1<<11)|(1<<12),
+];
+const WIN_NAMES = ['內圓','中圓','外圓'];
+
+function isWin(bits) {
+  for (const m of WIN_MASKS) if ((bits & m) === m) return true;
+  return false;
+}
+function winCircle(bits) {
+  for (let i=0;i<WIN_MASKS.length;i++) if ((bits & WIN_MASKS[i]) === WIN_MASKS[i]) return WIN_NAMES[i];
+  return null;
+}
+
+// ══ 遊戲狀態 ══
+let gameState = null;
+let history = []; // 用於悔棋
+let moveLog = [];
+let gameMode = 'pvp'; // pvp | pva
+let aiColor = 1; // 0=black, 1=white
+let aiDepth = 2;
+let editMode = false;
+let editPieceType = 0; // 0=black, 1=white
+let selectedPiece = null; // 走子時選中的棋子
+let gameOver = false;
+let aiThinking = false;
+let highlightMove = null; // {phase:'place',pos} 或 {phase:'move',from,to}
+
+// baqi.bin 載入的查表 (若成功)
+let baqiTable = null;
+
+// ══ 初始化 ══
+function initState() {
+  return {
+    black: 0,       // 13bit bitmask
+    white: 0,
+    turn: 0,        // 0=black, 1=white
+    phase: 'place', // 'place' | 'move'
+    blackPlaced: 0,
+    whitePlaced: 0,
+  };
+}
+
+// 規則彈窗控制
+function openRulesModal() {
+  document.getElementById('rulesModal').classList.add('visible');
+}
+function closeRulesModal() {
+  document.getElementById('rulesModal').classList.remove('visible');
+}
+// 點擊遮罩也可以關閉
+document.getElementById('rulesModal')?.addEventListener('click', function(e) {
+  if (e.target === this) closeRulesModal();
+});
+
+function newGame() {
+  gameState = initState();
+  history = [];
+  moveLog = [];
+  selectedPiece = null;
+  gameOver = false;
+  editMode = false;
+  highlightMove = null;
+  document.getElementById('edit-mode-bar').style.display = 'none';
+  document.getElementById('btn-edit').textContent = '✏ 編輯局面';
+  closeWin();
+  render();
+  updateMoveList();
+
+  if (gameMode === 'pva' && aiColor === 0) {
+    // AI執黑，先手
+    setTimeout(doAiMove, 400);
+  }
+}
+
+// ══ 合法走法 ══
+function getLegalPlaces(state) {
+  const all = state.black | state.white;
+  const moves = [];
+  for (let i=0;i<13;i++) {
+    if (!((all>>i)&1)) moves.push(i);
+  }
+  return moves;
+}
+
+function getLegalMoves(state) {
+  const all = state.black | state.white;
+  const my = state.turn === 0 ? state.black : state.white;
+  const moves = [];
+  for (let f=0;f<13;f++) {
+    if (!((my>>f)&1)) continue;
+    for (const t of ADJ[f]) {
+      if (!((all>>t)&1)) moves.push([f,t]);
+    }
+  }
+  return moves;
+}
+
+// ══ 執行落子 ══
+function doPlace(pos) {
+  if (gameOver || editMode) return;
+  const st = gameState;
+  if (st.phase !== 'place') return;
+  const all = st.black | st.white;
+  if ((all >> pos) & 1) return;
+
+  pushHistory();
+  if (st.turn === 0) {
+    st.black |= (1 << pos);
+    st.blackPlaced++;
+    moveLog.push({turn: 0, action: 'place', pos});
+  } else {
+    st.white |= (1 << pos);
+    st.whitePlaced++;
+    moveLog.push({turn: 1, action: 'place', pos});
+  }
+
+  if (st.blackPlaced === 4 && st.whitePlaced === 4) {
+    st.phase = 'move';
+    st.turn = 0; // 黑先走
+  } else {
+    st.turn = 1 - st.turn;
+  }
+
+  selectedPiece = null;
+  highlightMove = null;
+  render();
+  updateMoveList();
+  checkWinCondition();
+  if (!gameOver) triggerAiIfNeeded();
+}
+
+function doMove(from, to) {
+  if (gameOver || editMode) return;
+  const st = gameState;
+  if (st.phase !== 'move') return;
+
+  pushHistory();
+  if (st.turn === 0) {
+    st.black = (st.black & ~(1<<from)) | (1<<to);
+  } else {
+    st.white = (st.white & ~(1<<from)) | (1<<to);
+  }
+  moveLog.push({turn: st.turn, action: 'move', from, to});
+  st.turn = 1 - st.turn;
+  selectedPiece = null;
+  highlightMove = null;
+  render();
+  updateMoveList();
+  checkWinCondition();
+  if (!gameOver) triggerAiIfNeeded();
+}
+
+function pushHistory() {
+  const st = gameState;
+  history.push({
+    black: st.black, white: st.white, turn: st.turn,
+    phase: st.phase, blackPlaced: st.blackPlaced, whitePlaced: st.whitePlaced
+  });
+}
+
+function undoMove() {
+  if (history.length === 0) return;
+  const prev = history.pop();
+  gameState = { ...prev };
+  moveLog.pop();
+  selectedPiece = null;
+  gameOver = false;
+  closeWin();
+  render();
+  updateMoveList();
+
+  // PVA模式悔棋要撤2步（撤掉AI那步和自己那步）
+  if (gameMode === 'pva' && history.length > 0) {
+    const prevTurn = gameState.turn;
+    const myTurn = aiColor === 1 ? 0 : 1;
+    if (prevTurn === aiColor) {
+      // 當前輪到AI，再悔一步
+      const prev2 = history.pop();
+      gameState = { ...prev2 };
+      moveLog.pop();
+      render();
+      updateMoveList();
+    }
+  }
+}
+
+// ══ 勝負判斷 ══
+function checkWinCondition() {
+  const st = gameState;
+  if (isWin(st.black)) {
+    showWin(0, winCircle(st.black));
+    return;
+  }
+  if (isWin(st.white)) {
+    showWin(1, winCircle(st.white));
+    return;
+  }
+  // 無法移動
+  if (st.phase === 'move') {
+    const moves = getLegalMoves(st);
+    if (moves.length === 0) {
+      showWin(1 - st.turn, '對手無路可走');
+    }
+  }
+}
+
+function showWin(winner, reason) {
+  gameOver = true;
+  const overlay = document.getElementById('win-overlay');
+  document.getElementById('win-title').textContent = (winner === 0 ? '⬟ 黑方獲勝！' : '⬡ 白方獲勝！');
+  document.getElementById('win-desc').textContent = reason ? `佔領${reason}` : '對局結束';
+  overlay.classList.add('show');
+}
+
+function closeWin() {
+  document.getElementById('win-overlay').classList.remove('show');
+}
+
+// ══ AI ══
+function triggerAiIfNeeded() {
+  if (gameMode !== 'pva' || gameOver || aiThinking) return;
+  if (gameState.turn === aiColor) {
+    setTimeout(doAiMove, 350);
+  }
+}
+
+function doAiMove() {
+  if (gameOver || gameState.turn !== aiColor) return;
+  aiThinking = true;
+  updateStatus();
+
+  // 嘗試用baqi.bin查表
+  if (baqiTable) {
+    const key = packState(gameState);
+    if (baqiTable.has(key)) {
+      const bestMove = lookupBaqiBin(gameState);
+      if (bestMove) {
+        aiThinking = false;
+        if (gameState.phase === 'place') doPlace(bestMove);
+        else doMove(bestMove[0], bestMove[1]);
+        return;
+      }
+    }
+  }
+
+  // 否則用內建Minimax
+  setTimeout(() => {
+    const best = minimax(gameState, aiDepth);
+    aiThinking = false;
+    if (!best) { aiThinking = false; return; }
+    if (gameState.phase === 'place') {
+      doPlace(best.pos);
+    } else {
+      doMove(best.from, best.to);
+    }
+  }, 10);
+}
+
+// ── Minimax with Alpha-Beta ──
+function minimax(state, depth) {
+  let bestMove = null;
+  let bestVal = -Infinity;
+
+  const moves = state.phase === 'place'
+    ? getLegalPlaces(state).map(p => ({pos: p}))
+    : getLegalMoves(state).map(([f,t]) => ({from:f, to:t}));
+
+  for (const mv of moves) {
+    const ns = applyMove(state, mv);
+    const val = -minimaxEval(ns, depth-1, -Infinity, Infinity);
+    if (val > bestVal) { bestVal = val; bestMove = mv; }
+  }
+  return bestMove;
+}
+
+function minimaxEval(state, depth, alpha, beta) {
+  // 終局
+  if (isWin(state.black)) return (state.turn === 0) ? 10000 : -10000;
+  if (isWin(state.white)) return (state.turn === 1) ? 10000 : -10000;
+
+  const moves = state.phase === 'place'
+    ? getLegalPlaces(state).map(p => ({pos: p}))
+    : getLegalMoves(state).map(([f,t]) => ({from:f, to:t}));
+
+  if (moves.length === 0) return -10000;
+  if (depth === 0) return evaluate(state);
+
+  let best = -Infinity;
+  for (const mv of moves) {
+    const ns = applyMove(state, mv);
+    const val = -minimaxEval(ns, depth-1, -beta, -alpha);
+    if (val > best) best = val;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+function applyMove(state, mv) {
+  const ns = { ...state };
+  if (state.phase === 'place') {
+    if (state.turn === 0) { ns.black = state.black | (1 << mv.pos); ns.blackPlaced = state.blackPlaced + 1; }
+    else { ns.white = state.white | (1 << mv.pos); ns.whitePlaced = state.whitePlaced + 1; }
+    if (ns.blackPlaced === 4 && ns.whitePlaced === 4) { ns.phase = 'move'; ns.turn = 0; }
+    else ns.turn = 1 - state.turn;
+  } else {
+    if (state.turn === 0) ns.black = (state.black & ~(1<<mv.from)) | (1<<mv.to);
+    else ns.white = (state.white & ~(1<<mv.from)) | (1<<mv.to);
+    ns.turn = 1 - state.turn;
+  }
+  return ns;
+}
+
+function evaluate(state) {
+  // 從當前turn的視角評估
+  const my = state.turn === 0 ? state.black : state.white;
+  const opp = state.turn === 0 ? state.white : state.black;
+  let score = 0;
+
+  // 同圓已佔格數
+  for (const mask of WIN_MASKS) {
+    const myCount = popcount(my & mask);
+    const oppCount = popcount(opp & mask);
+    if (oppCount === 0) score += [0, 10, 50, 200][myCount] || 0;
+    if (myCount === 0) score -= [0, 10, 50, 200][oppCount] || 0;
+    if (myCount === 3 && oppCount === 0) score += 300;
+    if (oppCount === 3 && myCount === 0) score -= 400;
+  }
+
+  // 靈活性（可移動數）
+  const myMoves = countMoves(state, state.turn);
+  const oppMoves = countMoves(state, 1 - state.turn);
+  score += (myMoves - oppMoves) * 2;
+
+  return score;
+}
+
+function countMoves(state, turn) {
+  const all = state.black | state.white;
+  const my = turn === 0 ? state.black : state.white;
+  let cnt = 0;
+  for (let f=0;f<13;f++) {
+    if (!((my>>f)&1)) continue;
+    for (const t of ADJ[f]) if (!((all>>t)&1)) cnt++;
+  }
+  return cnt;
+}
+
+function popcount(x) {
+  let c = 0;
+  while (x) { c += x & 1; x >>>= 1; }
+  return c;
+}
+
+// ══ AI分析 ══
+function analyzePosition() {
+  const box = document.getElementById('analysis-box');
+  box.innerHTML = '<div class="ai-thinking">分析中...</div>';
+
+  setTimeout(() => {
+    const st = gameState;
+    let html = '';
+
+    // 評分
+    const score = evaluate({ ...st });
+    const evalPct = Math.max(0, Math.min(100, 50 + score * 0.3));
+    const evalLabel = score > 50 ? '黑優' : score < -50 ? '白優' : '均勢';
+
+    html += `<div>局面評估: <b style="color:var(--accent)">${evalLabel}</b></div>`;
+    html += `<div class="eval-bar"><div class="eval-fill" style="width:${evalPct}%;background:${score>0?'var(--accent2)':'var(--accent)'}"></div></div>`;
+    html += `<div style="margin-top:4px">`;
+
+    // 勝率提示
+    for (let i=0;i<WIN_MASKS.length;i++) {
+      const bCount = popcount(st.black & WIN_MASKS[i]);
+      const wCount = popcount(st.white & WIN_MASKS[i]);
+      if (bCount > 0 || wCount > 0) {
+        html += `<div>${WIN_NAMES[i]}: ⬟${bCount} ⬡${wCount}</div>`;
+      }
+    }
+
+    // 最佳建議
+    if (!gameOver) {
+      const best = minimax(st, 4);
+      if (best) {
+        if (st.phase === 'place') {
+          html += `<div style="margin-top:6px;color:var(--green)">建議布子: ${POINT_NAMES[best.pos]}</div>`;
+          highlightMove = { phase: 'place', pos: best.pos };
+        } else {
+          html += `<div style="margin-top:6px;color:var(--green)">建議走法: ${POINT_NAMES[best.from]}→${POINT_NAMES[best.to]}</div>`;
+          highlightMove = { phase: 'move', from: best.from, to: best.to };
+        }
+        render();
+      }
+    }
+
+    html += '</div>';
+    box.innerHTML = html;
+  }, 50);
+}
+
+// ══ baqi.bin 載入 ══
+async function tryLoadBaqiBin() {
+  try {
+    const resp = await fetch('baqi.bin');
+    if (!resp.ok) throw new Error('not found');
+    const buf = await resp.arrayBuffer();
+    // 格式假設: 每個entry = uint32 key + int8 value
+    // 根據C++的打包格式解析
+    baqiTable = new Map();
+    const view = new DataView(buf);
+    let offset = 0;
+    while (offset + 5 <= buf.byteLength) {
+      const key = view.getUint32(offset, true);
+      const val = view.getInt8(offset + 4);
+      baqiTable.set(key, val);
+      offset += 5;
+    }
+    document.getElementById('bin-status').className = 'bin-status ok';
+    document.getElementById('bin-status').textContent = `baqi.bin 已載入 (${baqiTable.size} 局面)`;
+  } catch(e) {
+    baqiTable = null;
+    document.getElementById('bin-status').className = 'bin-status fail';
+    document.getElementById('bin-status').textContent = 'baqi.bin 未找到，使用內建AI';
+  }
+}
+
+// 狀態打包（對應C++的pack_move）
+function packState(st) {
+  const turn = st.turn;
+  return ((turn << 26) | (st.white << 13) | st.black) >>> 0;
+}
+
+function packPlaceState(st) {
+  const placed = st.blackPlaced + st.whitePlaced;
+  return ((1 << 31) | (placed << 27) | (st.turn << 26) | (st.white << 13) | st.black) >>> 0;
+}
+
+function lookupBaqiBin(state) {
+  if (!baqiTable) return null;
+  const key = state.phase === 'place' ? packPlaceState(state) : packState(state);
+  // 找讓對方值最差的走法
+  const moves = state.phase === 'place'
+    ? getLegalPlaces(state).map(p => ({pos: p}))
+    : getLegalMoves(state).map(([f,t]) => ({from:f, to:t}));
+
+  let bestMove = null;
+  let bestVal = -999;
+  for (const mv of moves) {
+    const ns = applyMove(state, mv);
+    const nsKey = ns.phase === 'place' ? packPlaceState(ns) : packState(ns);
+    const v = baqiTable.has(nsKey) ? baqiTable.get(nsKey) : 0;
+    const myVal = -v; // 對手的值取反
+    if (myVal > bestVal) { bestVal = myVal; bestMove = mv; }
+  }
+  if (!bestMove) return null;
+  if (state.phase === 'place') return bestMove.pos;
+  return [bestMove.from, bestMove.to];
+}
+
+// ══ 編輯模式 ══
+function toggleEdit() {
+  editMode = !editMode;
+  const bar = document.getElementById('edit-mode-bar');
+  const btn = document.getElementById('btn-edit');
+  if (editMode) {
+    bar.style.display = 'block';
+    btn.textContent = '✓ 結束編輯';
+    selectedPiece = null;
+  } else {
+    bar.style.display = 'none';
+    btn.textContent = '✏ 編輯局面';
+    // 重新計算布子數
+    gameState.blackPlaced = popcount(gameState.black);
+    gameState.whitePlaced = popcount(gameState.white);
+    if (gameState.blackPlaced >= 4 && gameState.whitePlaced >= 4) {
+      gameState.phase = 'move';
+    } else {
+      gameState.phase = 'place';
+    }
+    gameOver = false;
+    closeWin();
+  }
+  render();
+}
+
+function editClick(pos, isRight) {
+  const st = gameState;
+  const hasBlack = (st.black >> pos) & 1;
+  const hasWhite = (st.white >> pos) & 1;
+
+  if (isRight) {
+    // 右鍵放/移除白子
+    if (hasWhite) st.white &= ~(1 << pos);
+    else if (!hasBlack) st.white |= (1 << pos);
+  } else {
+    // 左鍵放/移除黑子
+    if (hasBlack) st.black &= ~(1 << pos);
+    else if (!hasWhite) st.black |= (1 << pos);
+  }
+  render();
+}
+
+// ══ 點擊處理 ══
+function handlePointClick(pos) {
+  if (editMode) { editClick(pos, false); return; }
+  if (gameOver || aiThinking) return;
+  if (gameMode === 'pva' && gameState.turn === aiColor) return;
+
+  const st = gameState;
+
+  if (st.phase === 'place') {
+    doPlace(pos);
+    return;
+  }
+
+  // 走子階段
+  const my = st.turn === 0 ? st.black : st.white;
+  const all = st.black | st.white;
+
+  if (selectedPiece === null) {
+    if ((my >> pos) & 1) {
+      selectedPiece = pos;
+      render();
+    }
+  } else {
+    if (pos === selectedPiece) {
+      selectedPiece = null;
+      render();
+    } else if ((my >> pos) & 1) {
+      selectedPiece = pos;
+      render();
+    } else if (ADJ[selectedPiece].includes(pos) && !((all >> pos) & 1)) {
+      doMove(selectedPiece, pos);
+    } else {
+      selectedPiece = null;
+      render();
+    }
+  }
+}
+
+function handlePointRightClick(pos, e) {
+  e.preventDefault();
+  if (editMode) { editClick(pos, true); return; }
+}
+
+// ══ 模式設置 ══
+function setMode(mode) {
+  gameMode = mode;
+  document.getElementById('btn-pvp').classList.toggle('active', mode === 'pvp');
+  document.getElementById('btn-pva').classList.toggle('active', mode === 'pva');
+  document.getElementById('ai-side-box').style.display = mode === 'pva' ? '' : 'none';
+  newGame();
+}
+
+function setAiColor(val) {
+  aiColor = val === 'black' ? 0 : 1;
+  newGame();
+}
+
+function setDepth(d) {
+  aiDepth = d;
+  document.querySelectorAll('.depth-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', [2,4,6][i] === d);
+  });
+}
+
+// ══ 渲染 ══
+function render() {
+  renderBoard();
+  updateStatus();
+  updatePlayerCards();
+}
+
+function renderBoard() {
+  const st = gameState;
+  const nodesLayer = document.getElementById('nodes-layer');
+  const piecesLayer = document.getElementById('pieces-layer');
+  const hintsLayer = document.getElementById('hints-layer');
+
+  nodesLayer.innerHTML = '';
+  piecesLayer.innerHTML = '';
+  hintsLayer.innerHTML = '';
+
+  // 計算可移動目標
+  let validTargets = new Set();
+  if (!editMode && !gameOver && st.phase === 'move' && selectedPiece !== null) {
+    const all = st.black | st.white;
+    for (const t of ADJ[selectedPiece]) {
+      if (!((all >> t) & 1)) validTargets.add(t);
+    }
+  }
+
+  // 畫獲勝圓圈高亮
+  if (gameOver) {
+    const winB = winCircle(st.black);
+    const winW = winCircle(st.white);
+    if (winB || winW) {
+      const mask = winB ? WIN_MASKS[WIN_NAMES.indexOf(winB)] : WIN_MASKS[WIN_NAMES.indexOf(winW)];
+      for (let i=0;i<13;i++) {
+        if ((mask >> i) & 1) {
+          const [x, y] = POINT_POS[i];
+          const glow = document.createElementNS('http://www.w3.org/2000/svg','circle');
+          glow.setAttribute('cx', x);
+          glow.setAttribute('cy', y);
+          glow.setAttribute('r', '22');
+          glow.setAttribute('fill', 'rgba(200,168,75,0.15)');
+          glow.setAttribute('stroke', 'var(--win-glow)');
+          glow.setAttribute('stroke-width', '1.5');
+          hintsLayer.appendChild(glow);
+        }
+      }
+    }
+  }
+
+  // 畫格點和棋子
+  for (let i = 0; i < 13; i++) {
+    const [x, y] = POINT_POS[i];
+    const hasBlack = (st.black >> i) & 1;
+    const hasWhite = (st.white >> i) & 1;
+
+    // 格點
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', x);
+    dot.setAttribute('cy', y);
+    dot.setAttribute('r', hasBlack || hasWhite ? '0' : '5');
+    dot.setAttribute('fill', 'var(--board-line)');
+    dot.setAttribute('stroke', 'none');
+    nodesLayer.appendChild(dot);
+
+    // 棋子
+    if (hasBlack || hasWhite) {
+      const isSelected = (selectedPiece === i);
+      const piece = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      piece.setAttribute('cx', x);
+      piece.setAttribute('cy', y);
+      piece.setAttribute('r', '16');
+      piece.setAttribute('fill', hasBlack ? '#3a0a0a' : '#f0e8d8');
+      piece.setAttribute('stroke', hasBlack ? (isSelected ? '#ff6060' : '#c84b4b') : (isSelected ? '#e8c860' : '#c8a84b'));
+      piece.setAttribute('stroke-width', isSelected ? '3' : '2');
+      if (isSelected) piece.setAttribute('filter', 'url(#glow)');
+      piece.setAttribute('filter', 'url(#piece-shadow)');
+      piece.style.cursor = 'pointer';
+      piece.style.transition = 'all 0.15s';
+      piecesLayer.appendChild(piece);
+
+      // 棋子內點
+      const inner = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      inner.setAttribute('cx', x);
+      inner.setAttribute('cy', y);
+      inner.setAttribute('r', '5');
+      inner.setAttribute('fill', hasBlack ? '#c84b4b' : '#c8a84b');
+      inner.setAttribute('opacity', '0.7');
+      piecesLayer.appendChild(inner);
+    }
+
+    // 提示點
+    if (validTargets.has(i)) {
+      const hint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      hint.setAttribute('cx', x);
+      hint.setAttribute('cy', y);
+      hint.setAttribute('r', '8');
+      hint.setAttribute('fill', 'rgba(200,168,75,0.25)');
+      hint.setAttribute('stroke', 'rgba(200,168,75,0.7)');
+      hint.setAttribute('stroke-width', '1.5');
+      hintsLayer.appendChild(hint);
+    }
+
+    // 最佳走法高亮
+    if (highlightMove) {
+      if (highlightMove.phase === 'place' && i === highlightMove.pos) {
+        const hl = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        hl.setAttribute('cx', x); hl.setAttribute('cy', y); hl.setAttribute('r', '21');
+        hl.setAttribute('fill', 'rgba(75,200,123,0.2)');
+        hl.setAttribute('stroke', '#4bc87b'); hl.setAttribute('stroke-width', '2.5');
+        hintsLayer.appendChild(hl);
+      }
+      if (highlightMove.phase === 'move') {
+        if (i === highlightMove.from) {
+          const hl = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          hl.setAttribute('cx', x); hl.setAttribute('cy', y); hl.setAttribute('r', '21');
+          hl.setAttribute('fill', 'rgba(75,200,123,0.15)');
+          hl.setAttribute('stroke', '#4bc87b'); hl.setAttribute('stroke-width', '2.5');
+          hintsLayer.appendChild(hl);
+        }
+        if (i === highlightMove.to) {
+          const hl = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          hl.setAttribute('cx', x); hl.setAttribute('cy', y); hl.setAttribute('r', '21');
+          hl.setAttribute('fill', 'rgba(75,200,123,0.25)');
+          hl.setAttribute('stroke', '#4bc87b'); hl.setAttribute('stroke-width', '2.5');
+          hl.setAttribute('stroke-dasharray', '5 3');
+          hintsLayer.appendChild(hl);
+        }
+      }
+    }
+
+    // 可點擊的透明圓
+    const clickArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    clickArea.setAttribute('cx', x);
+    clickArea.setAttribute('cy', y);
+    clickArea.setAttribute('r', '22');
+    clickArea.setAttribute('fill', 'transparent');
+    clickArea.style.cursor = 'pointer';
+    const capturedI = i;
+    clickArea.addEventListener('click', () => handlePointClick(capturedI));
+    clickArea.addEventListener('contextmenu', (e) => handlePointRightClick(capturedI, e));
+    hintsLayer.appendChild(clickArea);
+  }
+
+  // 選中棋子連線高亮
+  if (selectedPiece !== null) {
+    const [sx, sy] = POINT_POS[selectedPiece];
+    for (const t of ADJ[selectedPiece]) {
+      const all = st.black | st.white;
+      if (!((all >> t) & 1)) {
+        const [tx, ty] = POINT_POS[t];
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', sx); line.setAttribute('y1', sy);
+        line.setAttribute('x2', tx); line.setAttribute('y2', ty);
+        line.setAttribute('stroke', 'rgba(200,168,75,0.3)');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('stroke-dasharray', '4 3');
+        hintsLayer.insertBefore(line, hintsLayer.firstChild);
+      }
+    }
+  }
+
+  // 最佳走法箭頭連線
+  if (highlightMove && highlightMove.phase === 'move') {
+    const [sx, sy] = POINT_POS[highlightMove.from];
+    const [tx, ty] = POINT_POS[highlightMove.to];
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', sx); line.setAttribute('y1', sy);
+    line.setAttribute('x2', tx); line.setAttribute('y2', ty);
+    line.setAttribute('stroke', 'rgba(75,200,123,0.6)');
+    line.setAttribute('stroke-width', '2.5');
+    line.setAttribute('stroke-dasharray', '5 3');
+    hintsLayer.insertBefore(line, hintsLayer.firstChild);
+  }
+}
+
+function updateStatus() {
+  const st = gameState;
+  const textEl = document.getElementById('status-text');
+  const phaseEl = document.getElementById('status-phase');
+
+  if (gameOver) {
+    textEl.textContent = '對局結束';
+    phaseEl.textContent = '';
+    return;
+  }
+
+  if (aiThinking) {
+    textEl.innerHTML = `AI思考中 <span class="ai-thinking">●●●</span>`;
+    phaseEl.textContent = '';
+    return;
+  }
+
+  const turnName = st.turn === 0 ? '⬟ 黑方' : '⬡ 白方';
+  if (st.phase === 'place') {
+    textEl.textContent = `${turnName} 布子`;
+    phaseEl.textContent = `布子階段 ${st.blackPlaced + st.whitePlaced}/8`;
+  } else {
+    textEl.textContent = `${turnName} 走棋`;
+    phaseEl.textContent = selectedPiece !== null ? '選擇目標' : '選擇棋子';
+  }
+}
+
+function updatePlayerCards() {
+  const st = gameState;
+  document.getElementById('card-black').classList.toggle('active-player', st.turn === 0 && !gameOver);
+  document.getElementById('card-white').classList.toggle('active-player', st.turn === 1 && !gameOver);
+
+  if (st.phase === 'place') {
+    document.getElementById('black-detail').textContent = `已放 ${st.blackPlaced}/4 子`;
+    document.getElementById('white-detail').textContent = `已放 ${st.whitePlaced}/4 子`;
+  } else {
+    const bMoves = countMoves(st, 0);
+    const wMoves = countMoves(st, 1);
+    document.getElementById('black-detail').textContent = `可走 ${bMoves} 步`;
+    document.getElementById('white-detail').textContent = `可走 ${wMoves} 步`;
+  }
+}
+
+function updateMoveList() {
+  const list = document.getElementById('move-list');
+  let html = '';
+  moveLog.forEach((entry, idx) => {
+    const cls = entry.turn === 0 ? 'black' : 'white';
+    const name = entry.turn === 0 ? '⬟黑' : '⬡白';
+    let desc = '';
+    if (entry.action === 'place') desc = `布 ${POINT_NAMES[entry.pos]}`;
+    else desc = `${POINT_NAMES[entry.from]}→${POINT_NAMES[entry.to]}`;
+    html += `<div class="move-entry ${cls}">${idx+1}. ${name} ${desc}</div>`;
+  });
+  list.innerHTML = html || '<div style="color:var(--text-dim)">（尚無記錄）</div>';
+  list.scrollTop = list.scrollHeight;
+}
+
+// ══ 初始化 ══
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('ai-side-box').style.display = 'none';
+  tryLoadBaqiBin();
+  newGame();
+});
+</script>
+</body>
+</html>

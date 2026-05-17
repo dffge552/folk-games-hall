@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>輪行棋 </title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      touch-action: manipulation; /* 改善觸控延遲 */
+    }
+    body {
+      font-family: 'Noto Serif TC', serif;
+      background: #f5f0e8;
+      color: #1a1410;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    header {
+      width: 100%;
+      text-align: center;
+      padding: 18px 0 10px;
+      border-bottom: 2px solid #c8bfaa;
+      background: #ede8dc;
+    }
+    header h1 { font-size: 26px; font-weight: 900; letter-spacing: 8px; margin: 0; }
+    header p { font-size: 11px; color: #7a6e5f; margin-top: 4px; letter-spacing: 2px; }
+
+    .main {
+      display: flex;
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+    }
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      padding: 16px 12px;
+      border-right: 1px solid #c8bfaa;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .board-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 12px;
+      min-width: 280px;
+    }
+    .right-panel {
+      width: 200px;
+      flex-shrink: 0;
+      padding: 16px 12px;
+      border-left: 1px solid #c8bfaa;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* 響應式：手機版時側邊欄上下排列 */
+    @media (max-width: 760px) {
+      .main { flex-direction: column; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #c8bfaa; flex-direction: row; flex-wrap: wrap; }
+      .right-panel { width: 100%; border-left: none; border-top: 1px solid #c8bfaa; }
+      .mode-btn { font-size: 11px; }
+    }
+
+    .panel-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: #7a6e5f;
+      border-bottom: 1px solid #c8bfaa;
+      padding-bottom: 5px;
+      margin-bottom: 3px;
+    }
+    .mode-btn, .diff-btn, .act-btn {
+      font-family: 'Noto Serif TC', serif;
+      background: #f5f0e8;
+      border: 1px solid #c8bfaa;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: 0.1s;
+      touch-action: manipulation;
+    }
+    .mode-btn {
+      width: 100%;
+      padding: 7px 9px;
+      font-size: 13px;
+      text-align: left;
+    }
+    .mode-btn small { display: block; font-size: 10px; opacity: 0.65; margin-top: 2px; }
+    .mode-btn:hover, .diff-btn:hover, .act-btn:hover { background: #e5dfd0; }
+    .mode-btn.active, .diff-btn.active, .act-btn.active { background: #1a1410; color: #f5f0e8; border-color: #1a1410; }
+
+    .diff-row { display: flex; gap: 6px; }
+    .diff-btn { flex: 1; padding: 5px; font-size: 11px; text-align: center; }
+
+    .act-btn { width: 100%; padding: 6px 8px; font-size: 12px; margin-top: 2px; }
+    .act-btn.danger { border-color: #b35a48; color: #9e2a1c; }
+    .act-btn.danger:hover { background: #fbeae7; }
+
+    .ai-notice {
+      font-size: 10px;
+      color: #7a6e5f;
+      text-align: center;
+      font-style: italic;
+      display: none;
+      background: #fff3cf;
+      border-radius: 12px;
+      padding: 3px;
+    }
+    .ai-notice.show { display: block; }
+    .edit-info {
+      display: none;
+      background: #fff8e7;
+      border-left: 3px solid #b8821a;
+      padding: 6px 8px;
+      font-size: 10px;
+      color: #7a5a2a;
+    }
+    .edit-info.show { display: block; }
+
+    .status-box {
+      background: #ede8dc;
+      border: 1px solid #c8bfaa;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .status-box .lbl { font-size: 10px; color: #7a6e5f; }
+    .status-box .val { font-size: 15px; font-weight: 700; margin-top: 3px; }
+    .val.red { color: #9e2a1c; }
+    .val.blue { color: #1a3a5c; }
+
+    .piece-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      background: #ede8dc;
+      padding: 6px;
+      border-radius: 6px;
+    }
+    .piece-chip {
+      background: #fefcf7;
+      border: 1px solid #cdc2ac;
+      border-radius: 6px;
+      padding: 4px 5px;
+      font-size: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .piece-chip .cn { font-weight: 700; }
+    .cn.red { color: #9e2a1c; }
+    .cn.blue { color: #1a3a5c; }
+    .piece-chip.done { background: #dff0e0; border-color: #7ba87b; }
+
+    .log-box {
+      background: #ede8dc;
+      border: 1px solid #c8bfaa;
+      border-radius: 6px;
+      padding: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px;
+      max-height: 260px;
+      overflow-y: auto;
+      line-height: 1.7;
+    }
+    .log-entry.red { color: #b0402c; }
+    .log-entry.blue { color: #1f4b74; }
+    .log-entry.sys { color: #2d6a3f; font-style: italic; }
+
+    .board-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 540px;
+      touch-action: none; /* 避免觸控時頁面縮放干擾 */
+    }
+    #board-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #faf7f0;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      touch-action: manipulation;
+    }
+
+    .winner-ov {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(245,240,232,0.94);
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      z-index: 20;
+    }
+    .winner-ov.show { display: flex; }
+    .winner-box {
+      background: #f5f0e8;
+      padding: 28px 32px;
+      border: 2px solid #1a1410;
+      text-align: center;
+      border-radius: 12px;
+    }
+    .winner-box button {
+      margin-top: 16px;
+      background: #1a1410;
+      color: white;
+      border: none;
+      padding: 8px 24px;
+      font-family: inherit;
+      border-radius: 30px;
+      cursor: pointer;
+    }
+
+    .expel-modal {
+      display: none;
+      position: absolute;
+      background: #fffcf3;
+      border: 1px solid #b8821a;
+      padding: 10px;
+      border-radius: 8px;
+      z-index: 30;
+      min-width: 160px;
+      box-shadow: 4px 4px 12px rgba(0,0,0,0.2);
+    }
+    .expel-modal.show { display: block; }
+    .ep-btn {
+      display: inline-block;
+      background: #e8dfcf;
+      margin: 3px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-family: monospace;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .analysis-panel {
+      margin-top: 18px;
+      width: 100%;
+      background: #ede8dc;
+      border-radius: 12px;
+      padding: 12px 16px;
+      border: 1px solid #c8bfaa;
+      font-size: 12px;
+      position: relative;
+      display: none;
+    }
+    .analysis-panel.show { display: block; }
+    .analysis-title {
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #7a6e5f;
+      border-left: 4px solid #b8821a;
+      padding-left: 8px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .close-analysis {
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: bold;
+      color: #8b7a60;
+      background: none;
+      border: none;
+      font-family: monospace;
+      padding: 0 8px;
+      touch-action: manipulation;
+    }
+    .close-analysis:hover { color: #9e2a1c; }
+    .analysis-content {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #2c2a27;
+    }
+    .analysis-meta {
+      font-size: 9px;
+      color: #9b8e7a;
+      margin-top: 6px;
+      text-align: right;
+    }
+    .best-move-tag {
+      margin-top: 8px;
+      padding: 6px 8px;
+      background: #e9e0cf;
+      border-radius: 12px;
+      font-size: 10px;
+      font-family: monospace;
+      border-left: 3px solid #b8821a;
+      word-break: break-word;
+      cursor: pointer;
+      transition: 0.1s;
+      touch-action: manipulation;
+    }
+    .best-move-tag:active { background: #cdc0a0; }
+
+    #btn-help {
+      background: #e8dfcf;
+      border-color: #b8821a;
+    }
+
+  </style>
+</head>
+<body>
+<header><h1>輪行棋</h1><p>古老棋盤遊戲</p></header>
+<div class="main">
+  <div class="sidebar">
+    <div class="panel-title">對戰模式 (紅先)</div>
+    <button class="mode-btn active" id="btn-pvp" onclick="setMode('pvp')">👥 雙人對戰<small>紅藍輪流，紅方先行</small></button>
+    <button class="mode-btn" id="btn-ai-red" onclick="setMode('aiRed')">🤖 AI 持紅<small>AI 控制紅方 (先手)</small></button>
+    <button class="mode-btn" id="btn-ai-blue" onclick="setMode('aiBlue')">🤖 AI 持藍<small>AI 控制藍方 (後手)</small></button>
+
+    <div class="panel-title">AI 難度</div>
+    <div class="diff-row">
+      <button class="diff-btn" id="diff-easy" onclick="setDiff('easy')">弱</button>
+      <button class="diff-btn active" id="diff-med" onclick="setDiff('med')">中</button>
+      <button class="diff-btn" id="diff-hard" onclick="setDiff('hard')">強</button>
+    </div>
+    <div class="panel-title">操作</div>
+    <button class="act-btn" id="btn-undo" onclick="undoMove()">↩ 悔棋</button>
+    <button class="act-btn" id="btn-edit" onclick="toggleEdit()">✎ 編輯局面</button>
+    <button class="act-btn danger" onclick="restartGame()">↺ 重新開局</button>
+    <button class="act-btn" id="btn-analysis" onclick="showAnalysisAndUpdate()">🧠 AI 分析</button>
+    <button class="act-btn" id="btn-help" onclick="showHelpModal()">❓ 遊戲說明</button>
+    <div class="edit-info" id="edit-info">點選棋子 → 點選空節點移動。再按完成編輯。</div>
+    <div class="ai-notice" id="ai-notice">♟️ AI 思考中 ...</div>
+    <div class="panel-title">驅逐規則</div>
+    <div style="font-size:10px; color:#7a6e5f; line-height:1.5">移動至對手棋子佔據的目標格 → 選擇新落點</div>
+  </div>
+
+  <div class="board-area">
+    <div class="board-wrap">
+      <svg id="board-svg" viewBox="0 0 480 510" xmlns="http://www.w3.org/2000/svg">
+        <g id="g-edges"></g>
+        <g id="g-goals"></g>
+        <g id="g-start-markers"></g>
+        <g id="g-nodes"></g>
+        <g id="g-hints"></g>
+        <g id="g-pieces"></g>
+        <g id="g-labels"></g>
+        <g id="g-best-move-highlight"></g>
+      </svg>
+      <div class="winner-ov" id="winner-ov"><div class="winner-box"><h2 id="w-title">紅方勝利</h2><button onclick="restartGame()">新的一局</button></div></div>
+      <div class="expel-modal" id="expel-modal"><div class="ep-title">選擇驅逐落點 <span style="float:right;cursor:pointer" onclick="closeExpel()">✕</span></div><div id="ep-targets"></div></div>
+    </div>
+    <div class="analysis-panel" id="analysis-panel">
+      <div class="analysis-title">
+        📐 AI 局面評估 & 推薦
+        <button class="close-analysis" id="close-analysis-btn" onclick="closeAnalysisPanel()">✕</button>
+      </div>
+      <div class="analysis-content" id="analysis-text">點擊「AI 分析」按鈕獲取建議</div>
+      <div class="best-move-tag" id="best-move-recommend"></div>
+      <div class="analysis-meta" id="analysis-meta"></div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="panel-title">當前回合</div>
+    <div class="status-box"><div class="lbl">輪到</div><div class="val red" id="turn-val">紅方</div><div class="sub" id="pos-val"></div></div>
+    <div class="panel-title">棋子位置</div>
+    <div class="piece-grid" id="piece-grid"></div>
+    <div class="panel-title">對局紀錄</div>
+    <div class="log-box" id="log-box"></div>
+  </div>
+</div>
+
+<!-- 遊戲說明彈窗 -->
+<div id="help-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center;" onclick="closeHelpModal()">
+  <div style="background:#f5f0e8; max-width:480px; margin:20px; border-radius:20px; padding:24px; font-family:'Noto Serif TC',serif; box-shadow:0 8px 28px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #c8bfaa; padding-bottom:12px; margin-bottom:16px;">
+      <span style="font-size:20px; font-weight:900;">🎲 輪行棋 規則說明</span>
+      <button onclick="closeHelpModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">✕</button>
+    </div>
+    <div style="font-size:14px; line-height:1.6; color:#2c2418; max-height:60vh; overflow-y:auto; padding-right:8px;">
+
+      <p><strong>🎯 勝利條件</strong><br>將己方所有棋子（紅方4顆、藍方4顆）移動到對方起始區域（淺綠色格），即獲勝。</p>
+
+      <p><strong>♟️ 棋子編號</strong><br>紅方：① ③ ⑤ ⑦ &nbsp;|&nbsp; 藍方：② ④ ⑥ ⑧</p>
+
+      <p><strong>🚶 移動規則</strong><br>• 棋子沿白色線移動至相鄰空位（只能走一步）<br>• 紅方先行，按照數字順序輪流：<strong>1→2→3→4→5→6→7→8→1...</strong><br>• 紅方走奇數棋（①③⑤⑦），藍方走偶數棋（②④⑥⑧）<br>• 棋子到達目的地後，仍然可以繼續移動離開</p>
+
+      <p><strong>⏸️ 停走規則</strong><br>• 當輪到的棋子因周圍沒有空位而<strong>無法移動</strong>時，該棋子自動「停走一著」<br>• 停走後會直接輪到<strong>己方的下一顆棋子</strong>（跳過對方）<br>• 連續16次停走則平局</p>
+
+      <p><strong>⚡ 驅逐規則</strong><br>• 當棋子從<strong>非目的地</strong>移動至<strong>對手棋子所在的目標格</strong>（淺綠色區域）時，可以驅逐該棋子<br>• 被驅逐的棋子必須移至任意<strong>空棋位</strong>（不可放在任何目標格）<br>• <strong>已在目的地內的棋子</strong>可以移動，但<strong>不能使用驅逐</strong>（驅逐僅適用於「準備進入目的地」時）</p>
+
+      <p><strong>🤖 AI 模式</strong><br>• AI持紅：AI控制紅方，玩家控制藍方<br>• AI持藍：玩家控制紅方，AI控制藍方<br>• 難度：弱(2層) / 中(4層) / 強(6層)</p>
+
+      <p><strong>🧠 AI 分析</strong><br>點擊後顯示評估分數與最佳走法建議，並在棋盤上高亮顯示（黃圈標記來源，綠圈標記目標）。</p>
+
+      <p><strong>✎ 編輯局面</strong><br>可任意移動棋子，用於擺局練習或復盤。</p>
+
+      <p><strong>📌 觸控操作</strong><br>• 點擊己方棋子（黃色外圈）→ 出現<strong>黃色移動點</strong> / <strong>橘紅色驅逐點</strong><br>• 點擊<strong>黃色圓點</strong>：普通移動到該位置<br>• 點擊<strong>橘紅色圓點（⚡）</strong>：驅逐對方棋子，再選擇新落點<br>• 棋子無路可走時會<strong>自動停走</strong>，無需手動操作<br>• 已在目的地的棋子：只會顯示移動點（沒有閃電符號），不能驅逐</p>
+
+      <hr style="margin:16px 0; border-color:#ddd6c8;">
+      <p style="font-size:12px; color:#8b7a60; text-align:center;">星環棋盤 · 全直線連通 · 驅逐機制</p>
+    </div>
+    <button onclick="closeHelpModal()" style="margin-top:20px; width:100%; background:#1a1410; color:white; border:none; padding:10px; border-radius:40px; font-family:inherit; cursor:pointer;">開始對奕</button>
+  </div>
+</div>
+
+<script>
+  // ========== 棋盤拓撲 ==========
+  const NN = ['C','V0','V1','V2','V3','V4','V5','R0','R1','R2','R3','R4','R5','E0','E1','E2','E3','E4','E5'];
+  const N = 19;
+  const idx = Object.fromEntries(NN.map((n,i)=>[n,i]));
+  const adjRaw = {
+    C:['R0','R1','R2','R3','R4','R5'],
+    V0:['R0','E0','E5'], V1:['R1','E0','E1'], V2:['R2','E1','E2'], V3:['R3','E2','E3'], V4:['R4','E3','E4'], V5:['R5','E4','E5'],
+    R0:['C','V0','R1','R5','E0','E5'], R1:['C','V1','R0','R2','E0','E1'], R2:['C','V2','R1','R3','E1','E2'],
+    R3:['C','V3','R2','R4','E2','E3'], R4:['C','V4','R3','R5','E3','E4'], R5:['C','V5','R0','R4','E4','E5'],
+    E0:['V0','V1','R0','R1'], E1:['V1','V2','R1','R2'], E2:['V2','V3','R2','R3'],
+    E3:['V3','V4','R3','R4'], E4:['V4','V5','R4','R5'], E5:['V0','V5','R0','R5']
+  };
+  const ADJ = NN.map(n => adjRaw[n].map(x=>idx[x]));
+
+  const RED_START = [idx.R0, idx.E0, idx.E5, idx.V0];
+  const BLUE_START = [idx.R3, idx.E2, idx.V3, idx.E3];
+  const RED_GOAL = new Set(BLUE_START);
+  const BLUE_GOAL = new Set(RED_START);
+  const RED_GOAL_LIST = [...RED_GOAL];
+  const BLUE_GOAL_LIST = [...BLUE_GOAL];
+  const ALL_GOAL = new Set([...RED_GOAL, ...BLUE_GOAL]);
+
+  const TURN_ORDER = [0,4,1,5,2,6,3,7];
+  const owner = p => p<4?0:1;
+  const pieceNum = p => p<4 ? p*2+1 : (p-4)*2+2;
+  const pieceLabel = p => p<4 ? `棋子${pieceNum(p)}（紅）` : `棋子${pieceNum(p)}（藍）`;
+
+  const DIST = (()=>{
+    let D = Array(N).fill().map(()=>new Int8Array(N).fill(99));
+    for(let s=0;s<N;s++){ D[s][s]=0; let q=[s];
+      while(q.length){ let next=[];
+        for(let u of q) for(let v of ADJ[u]) if(D[s][v]===99){ D[s][v]=D[s][u]+1; next.push(v); }
+        q=next;
+      }
+    }
+    return D;
+  })();
+  const minDist = (node, goalArr) => Math.min(...goalArr.map(g=>DIST[node][g]));
+
+  let ST = { pos: [...RED_START, ...BLUE_START], tidx: 0, skips: 0 };
+  let history = [];
+  let mode = 'pvp';
+  let difficulty = 'med';
+  let editMode = false, selectedPiece = null, gameOver = false, aiBusy = false;
+  let currentBestMove = null;
+  let analysisPanelVisible = false;
+
+  function getMoves(state) {
+    const pid = TURN_ORDER[state.tidx];
+    const own = owner(pid);
+    const from = state.pos[pid];
+
+    const occupied = new Set(state.pos);
+    const goalSet = own === 0 ? RED_GOAL : BLUE_GOAL;
+    const myGoalSet = own === 0 ? RED_GOAL : BLUE_GOAL;
+    const isInGoal = myGoalSet.has(from);  // 是否已經在目的地內
+
+    let moves = [];
+    let canMove = false;
+
+    for(let nb of ADJ[from]) {
+      if(!occupied.has(nb)) {
+        canMove = true;
+        moves.push({ type:'move', pid, to:nb });
+      }
+      // 驅逐條件：不在目的地內 && 目標格是對方目標格 && 該格有對方棋子
+      else if(!isInGoal && goalSet.has(nb)) {
+        for(let ep=0; ep<8; ep++) {
+          if(state.pos[ep] === nb && owner(ep)!==own) {
+            let after = new Set(state.pos);
+            after.delete(from); after.delete(nb);
+            for(let empty=0; empty<N; empty++) {
+              if(!after.has(empty) && empty!==nb && !ALL_GOAL.has(empty)) {
+                moves.push({ type:'expel', pid, to:nb, victim:ep, land:empty });
+              }
+            }
+            canMove = true; break;
+          }
+        }
+      }
+    }
+    if(!canMove) moves.push({ type:'skip', pid });
+    return moves;
+  }
+
+  function applyMove(state, mv) {
+    let newPos = [...state.pos];
+    let newTidx = state.tidx;
+    let newSkips = state.skips;
+
+    if(mv.type === 'move') {
+      newPos[mv.pid] = mv.to;
+      newSkips = 0;
+      // 正常移動：輪到下一個棋子（對方）
+      newTidx = (state.tidx + 1) % 8;
+    }
+    else if(mv.type === 'expel') {
+      newPos[mv.pid] = mv.to;
+      newPos[mv.victim] = mv.land;
+      newSkips = 0;
+      // 正常移動：輪到下一個棋子（對方）
+      newTidx = (state.tidx + 1) % 8;
+    }
+    else if(mv.type === 'skip') {
+      newSkips++;
+      // 停走：跳過對方，輪到己方的下一個棋子
+      // 原本 tidx 是當前棋子，需要前進 2 步（跳過對方）
+      newTidx = (state.tidx + 2) % 8;
+    }
+
+    return { pos: newPos, tidx: newTidx, skips: newSkips };
+  }
+
+  function checkWinner(state) {
+    let redAll = [0,1,2,3].every(i=>RED_GOAL.has(state.pos[i]));
+    let blueAll = [4,5,6,7].every(i=>BLUE_GOAL.has(state.pos[i]));
+    if(redAll && blueAll) return -1;
+    if(redAll) return 0;
+    if(blueAll) return 1;
+    if(state.skips >= 16) return -1;
+    return null;
+  }
+
+  function evaluate(state) {
+    let w = checkWinner(state);
+    if(w!==null) return w===-1?0 : w===0? 9999 : -9999;
+    let redDist=0, blueDist=0, redDone=0, blueDone=0;
+    for(let i=0;i<4;i++) { redDist += minDist(state.pos[i], RED_GOAL_LIST); if(RED_GOAL.has(state.pos[i])) redDone++; }
+    for(let i=4;i<8;i++) { blueDist += minDist(state.pos[i], BLUE_GOAL_LIST); if(BLUE_GOAL.has(state.pos[i])) blueDone++; }
+    let score = (blueDist - redDist)*7 + (redDone-blueDone)*45;
+    for(let i=0;i<4;i++) if(BLUE_GOAL.has(state.pos[i])) score+=12;
+    for(let i=4;i<8;i++) if(RED_GOAL.has(state.pos[i])) score-=12;
+    for(let i=0;i<4;i++) if(minDist(state.pos[i], RED_GOAL_LIST)===1) score+=6;
+    for(let i=4;i<8;i++) if(minDist(state.pos[i], BLUE_GOAL_LIST)===1) score-=6;
+    return score;
+  }
+
+  function sortMoves(moves, state) {
+    let pid = TURN_ORDER[state.tidx];
+    let own = owner(pid);
+    let gl = own===0 ? RED_GOAL_LIST : BLUE_GOAL_LIST;
+    return moves.slice().sort((a,b)=>{
+      let scoreA = a.type==='expel'? 90 : a.type==='skip'? -50 : -minDist(a.to, gl);
+      let scoreB = b.type==='expel'? 90 : b.type==='skip'? -50 : -minDist(b.to, gl);
+      return scoreB-scoreA;
+    });
+  }
+
+  function alphaBeta(state, depth, alpha, beta, isMax) {
+    let w = checkWinner(state);
+    if(w!==null) return w===-1?0 : w===0? 9999 : -9999;
+    if(depth===0) return evaluate(state);
+    let moves = sortMoves(getMoves(state), state);
+    if(isMax) {
+      let best = -Infinity;
+      for(let mv of moves) {
+        let val = alphaBeta(applyMove(state,mv), depth-1, alpha, beta, false);
+        best = Math.max(best, val); alpha = Math.max(alpha, val);
+        if(alpha>=beta) break;
+      }
+      return best;
+    } else {
+      let best = Infinity;
+      for(let mv of moves) {
+        let val = alphaBeta(applyMove(state,mv), depth-1, alpha, beta, true);
+        best = Math.min(best, val); beta = Math.min(beta, val);
+        if(alpha>=beta) break;
+      }
+      return best;
+    }
+  }
+
+  function getDepthByDiff() { return {easy:2, med:4, hard:6}[difficulty]; }
+
+  function bestMoveWithScore(state, isRedTurn) {
+    let moves = getMoves(state);
+    if(!moves.length) return null;
+    let depth = getDepthByDiff();
+    let bestVal = -Infinity, bestMv = moves[0];
+    let sorted = sortMoves(moves, state);
+    for(let mv of sorted) {
+      let val = alphaBeta(applyMove(state,mv), depth-1, -Infinity, Infinity, !isRedTurn);
+      if(val > bestVal) { bestVal = val; bestMv = mv; }
+    }
+    return { move: bestMv, score: bestVal };
+  }
+
+  function updateBestMoveHighlight() {
+    const hlGroup = document.getElementById('g-best-move-highlight');
+    hlGroup.innerHTML = '';
+    if(gameOver || editMode || !analysisPanelVisible) { currentBestMove = null; return; }
+    const curPid = TURN_ORDER[ST.tidx];
+    const isRedTurn = owner(curPid) === 0;
+    const best = bestMoveWithScore(ST, isRedTurn);
+    if(best && best.move) currentBestMove = best.move;
+    else currentBestMove = null;
+    if(!currentBestMove) return;
+    const mv = currentBestMove;
+    const fromNode = ST.pos[mv.pid];
+    const [fx, fy] = coords[fromNode];
+    const srcGlow = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    srcGlow.setAttribute('cx', fx); srcGlow.setAttribute('cy', fy);
+    srcGlow.setAttribute('r', '22');
+    srcGlow.setAttribute('fill', 'none');
+    srcGlow.setAttribute('stroke', '#f5b042');
+    srcGlow.setAttribute('stroke-width', '4');
+    srcGlow.setAttribute('stroke-dasharray', '4 4');
+    srcGlow.setAttribute('pointer-events', 'none');  // 新增：不攔截點擊
+    hlGroup.appendChild(srcGlow);
+    const toNode = mv.to;
+    const [tx, ty] = coords[toNode];
+    const targetGlow = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    targetGlow.setAttribute('cx', tx); targetGlow.setAttribute('cy', ty);
+    targetGlow.setAttribute('r', '20');
+    targetGlow.setAttribute('fill', '#66cc66');
+    targetGlow.setAttribute('fill-opacity', '0.5');
+    targetGlow.setAttribute('stroke', '#2e7d32');
+    targetGlow.setAttribute('stroke-width', '2.5');
+    targetGlow.setAttribute('pointer-events', 'none');  // 新增：不攔截點擊
+    hlGroup.appendChild(targetGlow);
+  }
+
+  function getBestMoveDescription(state) {
+    const curPid = TURN_ORDER[state.tidx];
+    const isRedTurn = owner(curPid) === 0;
+    const best = bestMoveWithScore(state, isRedTurn);
+    if (!best || !best.move) return "無合法步";
+    const mv = best.move;
+    const pieceNumVal = pieceNum(mv.pid);
+    const side = owner(mv.pid)===0 ? "紅" : "藍";
+    if (mv.type === 'move') return `🪄 推薦: ${side}${pieceNumVal} → ${NN[mv.to]}`;
+    else if (mv.type === 'expel') return `⚡ 推薦: ${side}${pieceNumVal} 驅逐 ${pieceNum(mv.victim)} 至 ${NN[mv.land]}`;
+    else return `⏸️ 推薦: ${side}${pieceNumVal} 停走`;
+  }
+
+  function showAnalysisAndUpdate() {
+    analysisPanelVisible = true;
+    document.getElementById('analysis-panel').classList.add('show');
+    updateAnalysisContent();
+    updateBestMoveHighlight();
+    render();
+  }
+
+  function closeAnalysisPanel() {
+    analysisPanelVisible = false;
+    document.getElementById('analysis-panel').classList.remove('show');
+    currentBestMove = null;
+    document.getElementById('g-best-move-highlight').innerHTML = '';
+    render();
+  }
+
+  function updateAnalysisContent() {
+    if(gameOver) {
+      document.getElementById('analysis-text').innerHTML = '對局已結束。';
+      document.getElementById('best-move-recommend').innerHTML = '';
+      document.getElementById('analysis-meta').innerHTML = '';
+      return;
+    }
+    let score = evaluate(ST);
+    let redDone = [0,1,2,3].filter(i=>RED_GOAL.has(ST.pos[i])).length;
+    let blueDone = [4,5,6,7].filter(i=>BLUE_GOAL.has(ST.pos[i])).length;
+    let redDist = [0,1,2,3].reduce((a,i)=>a+minDist(ST.pos[i],RED_GOAL_LIST),0);
+    let blueDist = [4,5,6,7].reduce((a,i)=>a+minDist(ST.pos[i],BLUE_GOAL_LIST),0);
+    let adv = (score>70)?'🔴 紅方優勢':(score<-70)?'🔵 藍方優勢':(Math.abs(score)<30)?'⚖️ 均勢':(score>0)?'🟡 紅方略優':'🟢 藍方略優';
+    document.getElementById('analysis-text').innerHTML = `<b>${adv}</b> &nbsp; 紅: ${redDone}/4 (距離${redDist}) &nbsp; 藍: ${blueDone}/4 (距離${blueDist})<br>📈 紅方評估分: ${Math.round(score)}`;
+    const bestDesc = getBestMoveDescription(ST);
+    const recommendDiv = document.getElementById('best-move-recommend');
+    recommendDiv.innerHTML = `📌 最佳走法建議：${bestDesc}`;
+    recommendDiv.style.cursor = 'pointer';
+    recommendDiv.onclick = (e) => { e.stopPropagation(); if(!gameOver && !editMode && !aiBusy) { const curPid = TURN_ORDER[ST.tidx]; const isRedTurn = owner(curPid) === 0; const best = bestMoveWithScore(ST, isRedTurn); if(best && best.move) doMove(best.move); else addLog('sys', '無可執行的最佳步'); } };
+    document.getElementById('analysis-meta').innerHTML = `深度 ${getDepthByDiff()} · ${new Date().toLocaleTimeString()}`;
+  }
+
+  function scheduleAI() {
+    if(mode==='pvp') return;
+    let curPid = TURN_ORDER[ST.tidx];
+    let curOwner = owner(curPid);
+    let needAI = (mode==='aiRed' && curOwner===0) || (mode==='aiBlue' && curOwner===1);
+    if(!needAI || aiBusy || gameOver) return;
+    aiBusy = true;
+    document.getElementById('ai-notice').classList.add('show');
+    setTimeout(()=>{
+      if(gameOver) { aiBusy=false; return; }
+      let best = bestMoveWithScore(ST, curOwner===0);
+      if(best && best.move) doMove(best.move);
+      aiBusy = false;
+      document.getElementById('ai-notice').classList.remove('show');
+      if(analysisPanelVisible) updateAnalysisContent();
+    }, 60);
+  }
+
+  function doMove(mv) {
+    if(gameOver) return;
+    history.push(cloneState(ST));
+    logAction(mv);
+    ST = applyMove(ST, mv);
+    selectedPiece = null;
+    closeExpel();
+    let win = checkWinner(ST);
+    if(win!==null) { gameOver=true; render(); showWinnerDialog(win); if(analysisPanelVisible) updateAnalysisContent(); return; }
+    render();
+    scheduleAI();
+    if(analysisPanelVisible) updateAnalysisContent();
+  }
+
+  function cloneState(s) { return { pos:[...s.pos], tidx:s.tidx, skips:s.skips }; }
+
+  // 座標
+  const CX=240, CY=258, R_OUT=158, R_MID=88;
+  const angles = [270,330,30,90,150,210].map(d=>d*Math.PI/180);
+  const coords = new Array(N);
+  coords[idx.C] = [CX,CY];
+  for(let i=0;i<6;i++) {
+    let a = angles[i];
+    coords[idx[`V${i}`]] = [CX+R_OUT*Math.cos(a), CY+R_OUT*Math.sin(a)];
+    coords[idx[`R${i}`]] = [CX+R_MID*Math.cos(a), CY+R_MID*Math.sin(a)];
+  }
+  for(let i=0;i<6;i++) {
+    let v1=coords[idx[`V${i}`]], v2=coords[idx[`V${(i+1)%6}`]];
+    coords[idx[`E${i}`]] = [(v1[0]+v2[0])/2, (v1[1]+v2[1])/2];
+  }
+
+  function findNodeAtPoint(clientX, clientY) {
+    const svg = document.getElementById('board-svg');
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    const cursor = pt.matrixTransform(svg.getScreenCTM().inverse());
+    for(let i=0; i<N; i++) {
+      const [x,y] = coords[i];
+      const dx = cursor.x - x, dy = cursor.y - y;
+      if(Math.hypot(dx,dy) < 18) return i;
+    }
+    return null;
+  }
+
+  function findPieceAtPoint(clientX, clientY) {
+    const svg = document.getElementById('board-svg');
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    const cursor = pt.matrixTransform(svg.getScreenCTM().inverse());
+    for(let pid=0; pid<8; pid++) {
+      const [x,y] = coords[ST.pos[pid]];
+      const dx = cursor.x - x, dy = cursor.y - y;
+      if(Math.hypot(dx,dy) < 18) return pid;
+    }
+    return null;
+  }
+
+  function onBoardPointer(e) {
+    const clientX = e.clientX ?? (e.touches ? e.touches[0].clientX : 0);
+    const clientY = e.clientY ?? (e.touches ? e.touches[0].clientY : 0);
+    if(gameOver) return;
+
+    // 先檢查是否點擊到 hint 層的元素（由它們自己處理）
+    let target = e.target;
+    if(target && target.parentNode && target.parentNode.id === 'g-hints') {
+      // hint 圓圈自己有事件監聽器，這裡不做任何事
+      return;
+    }
+
+    const piece = findPieceAtPoint(clientX, clientY);
+    if(piece !== null) {
+      onPieceClick(piece);
+      return;
+    }
+
+    const node = findNodeAtPoint(clientX, clientY);
+    if(node !== null) {
+      onNodeClick(node);
+      return;
+    }
+
+    if(!editMode) selectedPiece = null;
+    render();
+    closeExpel();
+  }
+
+  function drawStatic() {
+    const edgeGroup = document.getElementById('g-edges');
+    edgeGroup.innerHTML='';
+    let drawn = new Set();
+    for(let i=0;i<N;i++) {
+      for(let j of ADJ[i]) {
+        let key = i<j?`${i}-${j}`:`${j}-${i}`;
+        if(drawn.has(key)) continue; drawn.add(key);
+        let [x1,y1] = coords[i], [x2,y2] = coords[j];
+        let dx = x2-x1, dy = y2-y1, len = Math.hypot(dx,dy);
+        if(len>0.01) {
+          let ux=dx/len, uy=dy/len;
+          let margin = 13;
+          x1 += ux*margin; y1 += uy*margin;
+          x2 -= ux*margin; y2 -= uy*margin;
+        }
+        let line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+        line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+        line.setAttribute('stroke','#a89578'); line.setAttribute('stroke-width','2.2');
+        edgeGroup.appendChild(line);
+      }
+    }
+    const goalGroup = document.getElementById('g-goals');
+    goalGroup.innerHTML='';
+    for(let ni of ALL_GOAL) {
+      let [x,y] = coords[ni];
+      let circ = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circ.setAttribute('cx',x); circ.setAttribute('cy',y); circ.setAttribute('r','16');
+      circ.setAttribute('fill','#b3e0b0'); circ.setAttribute('stroke','#2c6e3c'); circ.setAttribute('stroke-width','1.6');
+      circ.setAttribute('stroke-dasharray','4 3');
+      goalGroup.appendChild(circ);
+    }
+    const startGroup = document.getElementById('g-start-markers');
+    startGroup.innerHTML='';
+    let startNodesSet = new Set([...RED_START, ...BLUE_START]);
+    for(let ni of startNodesSet) {
+      let [x,y] = coords[ni];
+      let circ = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circ.setAttribute('cx',x); circ.setAttribute('cy',y); circ.setAttribute('r','17');
+      circ.setAttribute('fill','#bcd9f0'); circ.setAttribute('stroke','#3a7ca5'); circ.setAttribute('stroke-width','1.2');
+      circ.setAttribute('opacity','0.7');
+      startGroup.appendChild(circ);
+    }
+    const nodeGroup = document.getElementById('g-nodes');
+    nodeGroup.innerHTML='';
+    for(let i=0;i<N;i++) {
+      let [x,y]=coords[i];
+      let circ = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circ.setAttribute('cx',x); circ.setAttribute('cy',y); circ.setAttribute('r','12');
+      circ.setAttribute('fill','#fef4e6'); circ.setAttribute('stroke','#b09f84'); circ.setAttribute('stroke-width','1.3');
+      circ.setAttribute('pointer-events', 'none');
+      nodeGroup.appendChild(circ);
+    }
+    const labelGroup = document.getElementById('g-labels');
+    labelGroup.innerHTML='';
+    for(let i=0;i<N;i++) {
+      let [x,y]=coords[i];
+      let txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x',x); txt.setAttribute('y',y);
+      txt.setAttribute('text-anchor','middle'); txt.setAttribute('dominant-baseline','central');
+      txt.setAttribute('font-size','7.5'); txt.setAttribute('fill','#8b7a60'); txt.setAttribute('font-family','monospace');
+      txt.setAttribute('pointer-events', 'none');
+      txt.textContent = NN[i];
+      labelGroup.appendChild(txt);
+    }
+  }
+
+  function render() {
+    drawPieces();
+    drawHints();
+    updateStatusUI();
+    updatePieceGridUI();
+    updateBestMoveHighlight();
+  }
+
+  function drawPieces() {
+    const g = document.getElementById('g-pieces'); g.innerHTML='';
+    let curPid = TURN_ORDER[ST.tidx];
+    for(let pid=0; pid<8; pid++) {
+      let ni = ST.pos[pid];
+      let [x,y] = coords[ni];
+      let isRed = owner(pid)===0;
+      let fill = isRed ? '#bc3f2a' : '#28567c';
+      let isCur = (pid===curPid && !gameOver && !editMode);
+      let isSel = (pid===selectedPiece);
+      if(isSel) {
+        let hl = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        hl.setAttribute('cx',x); hl.setAttribute('cy',y); hl.setAttribute('r','17');
+        hl.setAttribute('fill','none'); hl.setAttribute('stroke','#e7b42c'); hl.setAttribute('stroke-width','3');
+        hl.setAttribute('pointer-events', 'none');  // 不攔截點擊
+        g.appendChild(hl);
+      }
+      if(isCur) {
+        let glow = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        glow.setAttribute('cx',x); glow.setAttribute('cy',y); glow.setAttribute('r','16');
+        glow.setAttribute('fill','none'); glow.setAttribute('stroke',isRed?'#e08a74':'#7baacb'); glow.setAttribute('stroke-width','2');
+        glow.setAttribute('pointer-events', 'none');  // 不攔截點擊
+        g.appendChild(glow);
+      }
+      let group = document.createElementNS('http://www.w3.org/2000/svg','g');
+      group.setAttribute('pointer-events', 'none');  // 整個群組不攔截點擊
+
+      let circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circle.setAttribute('cx',x); circle.setAttribute('cy',y); circle.setAttribute('r','13');
+      circle.setAttribute('fill',fill); circle.setAttribute('stroke','#fff2e0'); circle.setAttribute('stroke-width','1.5');
+      group.appendChild(circle);
+
+      let txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x',x); txt.setAttribute('y',y); txt.setAttribute('text-anchor','middle');
+      txt.setAttribute('dominant-baseline','central'); txt.setAttribute('fill','white');
+      txt.setAttribute('font-size','10'); txt.setAttribute('font-weight','bold');
+      txt.textContent = pieceNum(pid);
+      group.appendChild(txt);
+      g.appendChild(group);
+    }
+  }
+
+  function drawHints() {
+    const hints = document.getElementById('g-hints');
+    hints.innerHTML = '';
+    if(selectedPiece === null || gameOver) return;
+
+    let moves = getMoves(ST).filter(m => m.pid === selectedPiece);
+    let expelledNodes = new Set();
+
+    for(let mv of moves) {
+      if(mv.type === 'move') {
+        let [x,y] = coords[mv.to];
+        let dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        dot.setAttribute('cx',x); dot.setAttribute('cy',y); dot.setAttribute('r','18');
+        dot.setAttribute('fill','#f0b349');
+        dot.setAttribute('opacity','0.7');
+        dot.style.cursor = 'pointer';
+        dot.setAttribute('data-move-type', 'move');
+        dot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          doMove(mv);
+        });
+        hints.appendChild(dot);
+      }
+      else if(mv.type === 'expel') {
+        if(!expelledNodes.has(mv.to)) {
+          expelledNodes.add(mv.to);
+          let [x,y] = coords[mv.to];
+
+          // 畫一個大的半透明橘紅色圓圈，覆蓋整個棋子區域
+          let mark = document.createElementNS('http://www.w3.org/2000/svg','circle');
+          mark.setAttribute('cx',x); mark.setAttribute('cy',y); mark.setAttribute('r','22');
+          mark.setAttribute('fill','#e06c3c');
+          mark.setAttribute('stroke','#ffcc00');
+          mark.setAttribute('stroke-width','3');
+          mark.setAttribute('opacity','0.85');
+          mark.style.cursor = 'pointer';
+          mark.setAttribute('data-move-type', 'expel');
+
+          const expelMoves = moves.filter(m => m.type === 'expel' && m.to === mv.to);
+
+          mark.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            showExpelModal(mv.to, expelMoves);
+          });
+          hints.appendChild(mark);
+
+          // 加上閃電符號
+          let text = document.createElementNS('http://www.w3.org/2000/svg','text');
+          text.setAttribute('x', x); text.setAttribute('y', y+4);
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('font-size', '16');
+          text.setAttribute('fill', 'white');
+          text.setAttribute('font-weight', 'bold');
+          text.setAttribute('pointer-events', 'none');
+          text.textContent = '⚡';
+          hints.appendChild(text);
+        }
+      }
+    }
+  }
+
+  function showExpelModal(toNode, expelList) {
+
+
+    let div = document.getElementById('ep-targets');
+    div.innerHTML = '';
+
+    let lands = [...new Set(expelList.map(m => m.land))];
+
+    if(lands.length === 0) {
+      console.log('沒有可驅逐的落點');
+      return;
+    }
+
+    for(let l of lands) {
+      let btn = document.createElement('div');
+      btn.className = 'ep-btn';
+      btn.textContent = NN[l];
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        let mv = expelList.find(m => m.land === l);
+        if(mv) {
+          closeExpel();
+          doMove(mv);
+        }
+      };
+      div.appendChild(btn);
+    }
+
+    let modal = document.getElementById('expel-modal');
+    let [sx, sy] = coords[toNode];
+
+    // 獲取 SVG 的實際位置
+    const svgRect = document.getElementById('board-svg').getBoundingClientRect();
+    const boardRect = document.querySelector('.board-wrap').getBoundingClientRect();
+
+    // 計算絕對位置
+    let left = svgRect.left + sx - 80;
+    let top = svgRect.top + sy - 60;
+
+    modal.style.position = 'fixed';
+    modal.style.left = left + 'px';
+    modal.style.top = top + 'px';
+    modal.style.display = 'block';
+    modal.classList.add('show');
+
+
+  }
+
+  function closeExpel() {
+    const modal = document.getElementById('expel-modal');
+    modal.style.display = 'none';
+    modal.classList.remove('show');
+  }
+
+  function onPieceClick(pid) {
+    closeExpel();
+    if(gameOver) return;
+    if(editMode) { selectedPiece = selectedPiece===pid? null : pid; render(); return; }
+
+    let curPid = TURN_ORDER[ST.tidx];
+    if(pid !== curPid) return;
+    if((mode==='aiRed' && owner(pid)===0) || (mode==='aiBlue' && owner(pid)===1)) return;
+
+    // 獲取當前棋子的所有合法走法
+    let moves = getMoves(ST);
+    let myMoves = moves.filter(m => m.pid === pid);
+
+    // 檢查是否有移動或驅逐的走法
+    let hasRealMove = myMoves.some(m => m.type === 'move' || m.type === 'expel');
+
+    if(!hasRealMove) {
+      // 沒有合法走法：自動停走
+      addLog('sys', `棋子${pieceNum(pid)} 無路可走，停走一著`);
+      let skipMove = { type: 'skip', pid: pid };
+      doMove(skipMove);
+      return;
+    }
+
+    // 正常選取/取消選取棋子
+    selectedPiece = selectedPiece === pid ? null : pid;
+    render();
+  }
+
+  function onNodeClick(ni) {
+    closeExpel();
+    if(gameOver) return;
+    if(editMode && selectedPiece!==null) {
+      if(ST.pos.some((p,i)=>p===ni && i!==selectedPiece)){ addLog('sys','節點被佔'); return; }
+      history.push(cloneState(ST));
+      ST.pos[selectedPiece]=ni; selectedPiece=null; render(); if(analysisPanelVisible) updateAnalysisContent(); return;
+    }
+    if(selectedPiece===null) return;
+    let moves = getMoves(ST).filter(m=>m.pid===selectedPiece);
+    let move = moves.find(m=>m.type==='move' && m.to===ni);
+    if(move) { doMove(move); return; }
+    let expelCandidates = moves.filter(m=>m.type==='expel' && m.to===ni);
+    if(expelCandidates.length) showExpelModal(ni, expelCandidates);
+  }
+
+  function updateStatusUI() {
+    if(gameOver){ document.getElementById('turn-val').textContent='終局'; document.getElementById('pos-val').textContent=''; return; }
+    let pid = TURN_ORDER[ST.tidx];
+    let isRed = owner(pid)===0;
+    document.getElementById('turn-val').textContent=pieceLabel(pid);
+    document.getElementById('turn-val').className = 'val '+(isRed?'red':'blue');
+    document.getElementById('pos-val').textContent = `位於 ${NN[ST.pos[pid]]}`;
+  }
+
+  function updatePieceGridUI() {
+    let grid = document.getElementById('piece-grid'); grid.innerHTML='';
+    for(let pid=0;pid<8;pid++) {
+      let isRed=owner(pid)===0;
+      let goalSet = isRed? RED_GOAL : BLUE_GOAL;
+      let done = goalSet.has(ST.pos[pid]);
+      let chip = document.createElement('div'); chip.className='piece-chip'+(done?' done':'');
+      let nameSpan = document.createElement('div'); nameSpan.className='cn '+(isRed?'red':'blue');
+      nameSpan.textContent = isRed?`${pieceNum(pid)} 紅`:`${pieceNum(pid)} 藍`;
+      let posSpan = document.createElement('div'); posSpan.textContent = NN[ST.pos[pid]];
+      chip.appendChild(nameSpan); chip.appendChild(posSpan); grid.appendChild(chip);
+    }
+  }
+
+  function logAction(mv) {
+    let isRed = owner(mv.pid)===0;
+    let side=isRed?'紅':'藍'; let num=pieceNum(mv.pid);
+    let msg='';
+    if(mv.type==='move') msg=`[${side}${num}] ${NN[ST.pos[mv.pid]]} → ${NN[mv.to]}`;
+    else if(mv.type==='expel') msg=`[${side}${num}] 驅逐 ${pieceNum(mv.victim)} → ${NN[mv.land]}，進 ${NN[mv.to]}`;
+    else msg=`[${side}${num}] 停走`;
+    addLog(isRed?'red':'blue', msg);
+  }
+
+  function showHelpModal() {
+    const modal = document.getElementById('help-modal');
+    modal.style.display = 'flex';
+  }
+
+  function closeHelpModal() {
+    const modal = document.getElementById('help-modal');
+    modal.style.display = 'none';
+  }
+
+  function addLog(cls, msg) {
+    let box=document.getElementById('log-box');
+    let d=document.createElement('div');
+    d.className='log-entry '+cls;
+    d.textContent=(box.children.length+1)+'. '+msg;
+    box.appendChild(d);
+    box.scrollTop=box.scrollHeight;
+  }
+
+  function showWinnerDialog(w) {
+    let ov=document.getElementById('winner-ov');
+    let title=document.getElementById('w-title');
+    title.textContent= w===0?'🏆 紅方勝利！': w===1?'🏆 藍方勝利！':'🤝 平局';
+    ov.classList.add('show');
+    addLog('sys',title.textContent);
+  }
+
+  function setMode(m){
+    mode=m;
+    ['pvp','aiRed','aiBlue'].forEach(id=>document.getElementById('btn-'+id).classList.toggle('active',id===m));
+    restartGame();
+  }
+
+  function setDiff(d){
+    difficulty=d;
+    ['easy','med','hard'].forEach(id=>document.getElementById('diff-'+id).classList.toggle('active',id===d));
+    if(analysisPanelVisible) updateAnalysisContent();
+  }
+
+  function undoMove(){
+    if(!history.length||aiBusy)return;
+    ST=history.pop();
+    selectedPiece=null;
+    gameOver=false;
+    document.getElementById('winner-ov').classList.remove('show');
+    if(mode==='aiBlue' && owner(TURN_ORDER[ST.tidx])===1 && history.length) ST=history.pop();
+    render();
+    addLog('sys','悔棋');
+    if(analysisPanelVisible) updateAnalysisContent();
+  }
+
+  function toggleEdit(){
+    editMode=!editMode;
+    let btn=document.getElementById('btn-edit');
+    btn.textContent=editMode?'✓ 完成編輯':'✎ 編輯局面';
+    document.getElementById('edit-info').classList.toggle('show',editMode);
+    selectedPiece=null;
+    render();
+    if(!editMode && analysisPanelVisible) updateAnalysisContent();
+  }
+
+  function restartGame(){
+    if(editMode)toggleEdit();
+    ST={ pos:[...RED_START,...BLUE_START], tidx:0, skips:0 };
+    history=[];
+    selectedPiece=null;
+    gameOver=false;
+    aiBusy=false;
+    document.getElementById('winner-ov').classList.remove('show');
+    closeExpel();
+    document.getElementById('log-box').innerHTML='';
+    render();
+    addLog('sys','✨ 全新對局');
+    if(analysisPanelVisible) updateAnalysisContent();
+    if(mode==='aiRed') scheduleAI();
+  }
+
+  // 綁定觸控與滑鼠事件
+  const svgEl = document.getElementById('board-svg');
+  svgEl.addEventListener('pointerdown', onBoardPointer);
+  svgEl.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false });
+
+  drawStatic();
+  restartGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>奧雀雀棋 Ojj</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0e0c;
+  --bg2: #1a1814;
+  --bg3: #252218;
+  --border: #3a3520;
+  --gold: #c9a84c;
+  --gold2: #e8c87a;
+  --gold-dim: #7a6330;
+  --ivory: #f0e8d0;
+  --ivory-dim: #a09070;
+  --red: #c0392b;
+  --red2: #e74c3c;
+  --blue: #2980b9;
+  --blue2: #3498db;
+  --green: #27ae60;
+  --text: #e8dcc8;
+  --text-dim: #8a7a60;
+  --black-piece: #1a1008;
+  --white-piece: #f5ede0;
+  --shadow: rgba(0,0,0,0.8);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Serif TC', serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Subtle noise texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+/* Header */
+header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+header h1 {
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: var(--gold);
+  text-shadow: 0 0 30px rgba(201,168,76,0.3);
+}
+header h1 span {
+  color: var(--ivory-dim);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  display: block;
+  margin-top: 4px;
+}
+
+/* Mode bar */
+.mode-bar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.mode-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 7px 18px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+}
+.mode-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+.mode-btn.active {
+  background: var(--bg3);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* Main layout */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .main { grid-template-columns: 1fr; }
+}
+
+/* Board area */
+.board-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.board-container {
+  position: relative;
+}
+
+#board-svg {
+  display: block;
+  filter: drop-shadow(0 8px 32px rgba(0,0,0,0.7));
+}
+
+/* Coordinates */
+.coord-row {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  padding: 0 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+.coord-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  height: 100%;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* Status bar */
+.status-bar {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+}
+.status-indicator {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-indicator.black { background: #555; border: 2px solid #888; }
+.status-indicator.white { background: #ddd; border: 2px solid #aaa; }
+.status-indicator.ai { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+.status-text {
+  font-size: 0.9rem;
+  color: var(--text);
+  flex: 1;
+}
+.status-thinking {
+  font-size: 0.75rem;
+  color: var(--gold);
+  font-family: 'JetBrains Mono', monospace;
+  animation: blink 1s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* Side panel */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 14px;
+}
+.panel-section h3 {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Score display */
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+.score-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.piece-icon {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.piece-icon.black { background: radial-gradient(circle at 35% 35%, #555, #111); border: 1px solid #777; }
+.piece-icon.white { background: radial-gradient(circle at 35% 35%, #fff, #ccc); border: 1px solid #aaa; }
+.score-name { font-size: 0.85rem; color: var(--text-dim); }
+.score-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--ivory);
+  min-width: 32px;
+  text-align: right;
+}
+.score-num.winning { color: var(--gold); }
+.score-num.losing { color: var(--text-dim); }
+
+/* Buttons */
+.btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 9px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  transition: all 0.18s;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--gold-dim);
+  color: var(--text);
+  background: var(--bg2);
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.primary {
+  border-color: var(--gold-dim);
+  color: var(--gold);
+}
+.btn.primary:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.08);
+}
+.btn.danger {
+  border-color: #5a2020;
+  color: #c0392b;
+}
+.btn.danger:hover:not(:disabled) {
+  border-color: var(--red2);
+  background: rgba(192,57,43,0.08);
+}
+.btn-icon { font-size: 1rem; }
+
+/* AI Analysis */
+.analysis-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  min-height: 80px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.analysis-box .highlight { color: var(--gold); }
+.analysis-box .good { color: var(--green); }
+.analysis-box .bad { color: var(--red2); }
+
+/* Settings */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 0.85rem;
+}
+.setting-label { color: var(--text-dim); }
+select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 2px;
+  font-family: 'Noto Serif TC', serif;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+/* History log */
+.history-log {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 8px;
+  max-height: 140px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  line-height: 1.8;
+}
+.history-log::-webkit-scrollbar { width: 4px; }
+.history-log::-webkit-scrollbar-track { background: var(--bg); }
+.history-log::-webkit-scrollbar-thumb { background: var(--border); }
+.history-entry { padding: 1px 0; }
+.history-entry.black-move { color: #aaa; }
+.history-entry.white-move { color: #ccc; }
+.history-entry.capture { color: var(--gold); }
+
+/* Edit mode overlay */
+.edit-toolbar {
+  display: none;
+  background: var(--bg2);
+  border: 1px solid var(--gold-dim);
+  border-radius: 2px;
+  padding: 10px 14px;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.edit-toolbar.visible { display: flex; }
+.edit-label { font-size: 0.8rem; color: var(--gold); letter-spacing: 0.1em; }
+.edit-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text-dim);
+  transition: all 0.15s;
+}
+.edit-option:hover { border-color: var(--gold-dim); color: var(--text); }
+.edit-option.active { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.08); }
+
+/* Win overlay */
+.win-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.win-overlay.visible { display: flex; }
+.win-box {
+  background: var(--bg2);
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+  padding: 40px 60px;
+  text-align: center;
+  box-shadow: 0 0 80px rgba(201,168,76,0.2);
+}
+.win-title {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: var(--gold);
+  letter-spacing: 0.2em;
+  margin-bottom: 8px;
+}
+.win-sub {
+  font-size: 1rem;
+  color: var(--text-dim);
+  margin-bottom: 24px;
+}
+.win-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Tooltips */
+.move-count-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+/* 自訂規則彈窗 */
+.rules-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.rules-modal.visible {
+  display: flex;
+}
+.rules-box {
+  background: var(--bg2);
+  border: 2px solid var(--gold);
+  border-radius: 4px;
+  max-width: 520px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 0 60px rgba(201,168,76,0.3);
+}
+.rules-header {
+  background: var(--bg3);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--gold-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background: var(--bg2);
+}
+.rules-header h2 {
+  color: var(--gold);
+  font-size: 1.3rem;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+.rules-close {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 1.5rem;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+.rules-close:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.rules-content {
+  padding: 20px 24px;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+.rules-content h3 {
+  color: var(--gold);
+  font-size: 1rem;
+  margin: 16px 0 8px 0;
+  border-left: 3px solid var(--gold);
+  padding-left: 10px;
+}
+.rules-content h3:first-of-type {
+  margin-top: 0;
+}
+.rules-content ul {
+  margin: 6px 0 12px 20px;
+}
+.rules-content li {
+  margin: 6px 0;
+  color: var(--text-dim);
+}
+.rules-content .highlight {
+  color: var(--gold);
+}
+.rules-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0;
+}
+.rules-footer {
+  background: var(--bg3);
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>奧雀雀棋
+      <span>O J J · STRATEGY BOARD GAME</span>
+    </h1>
+  </header>
+
+  <!-- Mode selector -->
+  <div class="mode-bar">
+    <button class="mode-btn active" onclick="setMode('pvp')">⚔ 雙人對戰</button>
+    <button class="mode-btn" onclick="setMode('pva')">🤖 人機對戰</button>
+    <button class="mode-btn" onclick="setMode('edit')">✏ 編輯局面</button>
+  </div>
+
+  <div class="main">
+    <!-- Board area -->
+    <div class="board-wrap">
+      <!-- Edit toolbar -->
+      <div class="edit-toolbar" id="editToolbar">
+        <span class="edit-label">編輯模式</span>
+        <div class="edit-option active" id="editBlack" onclick="setEditTool('black')">
+          <span style="width:12px;height:12px;border-radius:50%;background:#444;border:1px solid #888;display:inline-block"></span>黑子
+        </div>
+        <div class="edit-option" id="editWhite" onclick="setEditTool('white')">
+          <span style="width:12px;height:12px;border-radius:50%;background:#eee;border:1px solid #aaa;display:inline-block"></span>白子
+        </div>
+        <div class="edit-option" id="editEmpty" onclick="setEditTool('empty')">
+          <span style="width:12px;height:12px;border-radius:50%;border:1px dashed #666;display:inline-block"></span>清空
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <span style="font-size:0.8rem;color:var(--text-dim)">先手：</span>
+          <div class="edit-option active" id="editTurnB" onclick="setEditTurn(0)">黑先</div>
+          <div class="edit-option" id="editTurnW" onclick="setEditTurn(1)">白先</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:0;align-items:center">
+        <div class="coord-col" id="coordCol" style="width:20px;padding-right:4px;text-align:right"></div>
+        <div class="board-container">
+          <svg id="board-svg" width="480" height="480" viewBox="0 0 480 480"></svg>
+        </div>
+      </div>
+      <div class="coord-row" id="coordRow"></div>
+
+      <!-- Status bar -->
+      <div class="status-bar" style="max-width:520px">
+        <div class="status-indicator black" id="statusDot"></div>
+        <div class="status-text" id="statusText">點擊棋子開始遊戲</div>
+        <div class="status-thinking" id="statusThinking" style="display:none">AI 思考中...</div>
+        <div class="move-count-badge" id="moveCount">第 0 手</div>
+      </div>
+    </div>
+
+    <!-- Side panel -->
+    <div class="panel">
+      <!-- Score -->
+      <div class="panel-section">
+        <h3>棋子數量</h3>
+        <div class="score-row">
+          <div class="score-side">
+            <span class="piece-icon black"></span>
+            <span class="score-name">黑方</span>
+          </div>
+          <span class="score-num" id="scoreBlack">12</span>
+        </div>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <div class="score-row">
+          <div class="score-side">
+            <span class="piece-icon white"></span>
+            <span class="score-name">白方</span>
+          </div>
+          <span class="score-num" id="scoreWhite">12</span>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="panel-section">
+        <h3>設定</h3>
+        <div class="setting-row">
+          <span class="setting-label">人機模式玩家</span>
+          <select id="playerSide" onchange="onSettingChange()">
+            <option value="0">執黑（先手）</option>
+            <option value="1">執白（後手）</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">AI 強度</span>
+          <select id="aiDepth" onchange="onSettingChange()">
+            <option value="3">入門 (深度3)</option>
+            <option value="4" selected>普通 (深度4)</option>
+            <option value="5">強力 (深度5)</option>
+            <option value="6">高手 (深度6)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="panel-section">
+        <h3>操作</h3>
+        <div class="btn-group">
+          <button class="btn primary" onclick="newGame()">
+            <span class="btn-icon">◈</span> 新局開始
+          </button>
+          <button class="btn" id="undoBtn" onclick="undoMove()" disabled>
+            <span class="btn-icon">↩</span> 悔棋
+          </button>
+          <button class="btn" id="analyzeBtn" onclick="analyzePosition()">
+            <span class="btn-icon">◎</span> AI 分析局面
+          </button>
+          <button class="btn" id="hintBtn" onclick="showHint()">
+            <span class="btn-icon">◉</span> 提示最佳走法
+          </button>
+          <button class="btn" onclick="openRulesModal()">
+            <span class="btn-icon">📖</span> 遊戲說明
+          </button>
+        </div>
+      </div>
+
+      <!-- AI Analysis -->
+      <div class="panel-section">
+        <h3>分析結果</h3>
+        <div class="analysis-box" id="analysisBox">等待分析...</div>
+      </div>
+
+      <!-- History -->
+      <div class="panel-section">
+        <h3>棋譜</h3>
+        <div class="history-log" id="historyLog">— 對局尚未開始 —</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Win overlay -->
+<div class="win-overlay" id="winOverlay">
+  <div class="win-box">
+    <div class="win-title" id="winTitle">黑方獲勝</div>
+    <div class="win-sub" id="winSub">對局結束</div>
+    <div class="win-btns">
+      <button class="btn primary" onclick="newGame();document.getElementById('winOverlay').classList.remove('visible')">再來一局</button>
+      <button class="btn" onclick="document.getElementById('winOverlay').classList.remove('visible')">查看棋局</button>
+    </div>
+  </div>
+</div>
+
+<!-- 自訂規則彈窗 -->
+<div class="rules-modal" id="rulesModal">
+  <div class="rules-box">
+    <div class="rules-header">
+      <h2>📖 奧雀雀棋 · 遊戲說明</h2>
+      <button class="rules-close" onclick="closeRulesModal()">✕</button>
+    </div>
+    <div class="rules-content">
+      <h3>🎲 棋盤與棋子</h3>
+      <ul>
+        <li>5×5 交叉點棋盤，共 <span class="highlight">25 個棋位</span></li>
+        <li>黑白雙方各 <span class="highlight">12 枚棋子</span></li>
+        <li>黑棋位於棋盤上方，白棋位於下方（初始佈局固定）</li>
+      </ul>
+
+      <h3>🚶 走法一｜步行</h3>
+      <ul>
+        <li>沿線移動 <span class="highlight">1 步</span>至相鄰的空棋位</li>
+        <li>可行方向：前方、斜前方、左方、右方</li>
+        <li>❌ <strong>不可後退</strong></li>
+      </ul>
+
+      <h3>🦘 走法二｜跳行</h3>
+      <ul>
+        <li>可跳過相鄰的棋子（己方或對方皆可）</li>
+        <li>必須落在該棋子後方的第一個空位</li>
+        <li>若跳過的是<span class="highlight">對方棋子</span> → <strong>必須吃掉</strong>（強制跳吃）</li>
+        <li>若跳過的是己方棋子 → 不吃，且<span class="highlight">不強制</span>，仍可選擇步行</li>
+        <li>✅ <strong>可連續跳吃</strong>（只要路徑存在）</li>
+      </ul>
+
+      <h3>🏆 勝利條件</h3>
+      <ul>
+        <li>💀 吃掉對方所有棋子</li>
+        <li>🚫 使對方所有棋子無法移動</li>
+        <li>⚖️ 雙方皆無法移動 → 比較剩餘棋子數，<span class="highlight">多者獲勝</span></li>
+      </ul>
+
+      <h3>🖱️ 操作方式</h3>
+      <ul>
+        <li>點擊己方棋子（出現金色圓環）</li>
+        <li>再點擊<span class="highlight">綠色高亮的空位</span>進行移動</li>
+        <li>連跳時會自動保持選取狀態</li>
+        <li>可使用「悔棋」「AI分析」「提示」等功能</li>
+      </ul>
+
+      <div class="rules-divider"></div>
+      <div style="text-align:center; font-size:0.75rem;">
+        ⚔️ 君子之弈 · 謀定後動 ⚔️
+      </div>
+    </div>
+    <div class="rules-footer">
+      奧雀雀棋 OJJ · 策略棋類遊戲
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  BOARD GEOMETRY
+// ═══════════════════════════════════════════════════════
+const IDX = (x,y) => y*5+x;
+const GX  = i => i%5;
+const GY  = i => Math.floor(i/5);
+
+const DX8 = [-1, 0, 1,-1, 1,-1, 0, 1];
+const DY8 = [-1,-1,-1, 0, 0, 1, 1, 1];
+
+// Extra directions for 2-step diagonal edges (span 2 cells)
+// TL-BR: (-2,-2),(+2,+2)  TR-BL: (+2,-2),(-2,+2)
+const DX_DIAG = [-2, 2, 2,-2];
+const DY_DIAG = [-2,-2, 2, 2];
+
+// Build adjacency (same logic as Python)
+const EDGE = Array.from({length:25},()=>new Array(25).fill(false));
+const ADJ  = Array.from({length:25},()=>[]);
+
+(function buildGraph(){
+  const ae = (a,b)=>{ EDGE[a][b]=EDGE[b][a]=true; };
+  // Horizontal and vertical edges (all nodes)
+  for(let y=0;y<5;y++)
+    for(let x=0;x<5;x++){
+      if(x+1<5) ae(IDX(x,y),IDX(x+1,y));
+      if(y+1<5) ae(IDX(x,y),IDX(x,y+1));
+    }
+  // Diagonal edges: only at nodes where (x+y)%2===0
+  for(let y=0;y<5;y++)
+    for(let x=0;x<5;x++){
+      if((x+y)%2!==0) continue;
+      if(x+1<5 && y+1<5) ae(IDX(x,y),IDX(x+1,y+1));
+      if(x-1>=0 && y+1<5) ae(IDX(x,y),IDX(x-1,y+1));
+    }
+  for(let i=0;i<25;i++)
+    for(let j=0;j<25;j++)
+      if(EDGE[i][j]) ADJ[i].push(j);
+})();
+
+function isForward(turn, dy){
+  return turn===0 ? dy<=0 : dy>=0;
+}
+
+// ═══════════════════════════════════════════════════════
+//  MOVE GENERATION
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+//  MOVE GENERATION
+// ═══════════════════════════════════════════════════════
+// Step directions: 8 unit directions only
+const STEP_DIRS = [
+  [-1,-1],[ 0,-1],[ 1,-1],
+  [-1, 0],        [ 1, 0],
+  [-1, 1],[ 0, 1],[ 1, 1],
+];
+
+// Jump directions: only the 8 unit directions (jump over adjacent piece, land 2 away)
+const JUMP_DIRS = [
+  [-1,-1],[ 0,-1],[ 1,-1],
+  [-1, 0],        [ 1, 0],
+  [-1, 1],[ 0, 1],[ 1, 1],
+];
+
+function jumpDFS(pos, b, w, turn, visited, jumpResults, captureResults) {
+  const fx = GX(pos), fy = GY(pos);
+  const all = b | w;
+
+  for (const [dx, dy] of JUMP_DIRS) {
+    if (!isForward(turn, dy)) continue;
+    const mx = fx + dx, my_ = fy + dy;
+    if (mx < 0 || mx > 4 || my_ < 0 || my_ > 4) continue;
+    const mid = IDX(mx, my_);
+    if (!EDGE[pos][mid]) continue;
+    // 中間必須有棋子（己方或敵方都可以）
+    if (!((b | w) >> mid & 1)) continue;
+
+    const lx = mx + dx, ly = my_ + dy;
+    if (lx < 0 || lx > 4 || ly < 0 || ly > 4) continue;
+    const land = IDX(lx, ly);
+    if (!EDGE[mid][land]) continue;
+    if (all >> land & 1) continue;
+    if (visited >> land & 1) continue;
+
+    let nb = b, nw = w;
+    let isCapture = false;
+
+    if (turn === 0) {
+      nb = (nb & ~(1 << pos)) | (1 << land);
+      if (w >> mid & 1) {
+        nw &= ~(1 << mid);
+        isCapture = true;
+      }
+    } else {
+      nw = (nw & ~(1 << pos)) | (1 << land);
+      if (b >> mid & 1) {
+        nb &= ~(1 << mid);
+        isCapture = true;
+      }
+    }
+
+    jumpResults.push([nb, nw]);
+    if (isCapture) {
+      captureResults.push([nb, nw]);
+    }
+
+    jumpDFS(land, nb, nw, turn, visited | (1 << land), jumpResults, captureResults);
+  }
+}
+
+function openRulesModal() {
+  document.getElementById('rulesModal').classList.add('visible');
+}
+function closeRulesModal() {
+  document.getElementById('rulesModal').classList.remove('visible');
+}
+// 點擊遮罩也可以關閉
+document.getElementById('rulesModal')?.addEventListener('click', function(e) {
+  if (e.target === this) closeRulesModal();
+});
+
+function getMoves(b, w, turn) {
+  const my = turn === 0 ? b : w;
+  const op = turn === 0 ? w : b;
+  const all = b | w;
+  const stepResults = [];      // 步行走法
+  const jumpResults = [];      // 所有跳法（跳過己方或敵方）
+  const captureResults = [];   // 能吃掉敵方的跳法（強制用）
+
+  for (let f = 0; f < 25; f++) {
+    if (!(my >> f & 1)) continue;
+    const fx = GX(f), fy = GY(f);
+
+    // ── 步行走法（不能後退）──
+    for (const [dx, dy] of STEP_DIRS) {
+      if (!isForward(turn, dy)) continue;
+      const tx = fx + dx, ty = fy + dy;
+      if (tx < 0 || tx > 4 || ty < 0 || ty > 4) continue;
+      const t = IDX(tx, ty);
+      if (!EDGE[f][t]) continue;
+      if (all >> t & 1) continue;
+
+      let nb = b, nw = w;
+      if (turn === 0) nb = (nb & ~(1 << f)) | (1 << t);
+      else nw = (nw & ~(1 << f)) | (1 << t);
+      stepResults.push([nb, nw]);
+    }
+
+    // ── 跳行（可跳過己方或敵方）──
+    for (const [dx, dy] of JUMP_DIRS) {
+      if (!isForward(turn, dy)) continue;
+      const mx = fx + dx, my_ = fy + dy;
+      if (mx < 0 || mx > 4 || my_ < 0 || my_ > 4) continue;
+      const mid = IDX(mx, my_);
+      if (!EDGE[f][mid]) continue;
+      // 中間必須有棋子（己方或敵方都可以）
+      if (!((b | w) >> mid & 1)) continue;
+
+      const lx = mx + dx, ly = my_ + dy;
+      if (lx < 0 || lx > 4 || ly < 0 || ly > 4) continue;
+      const land = IDX(lx, ly);
+      if (!EDGE[mid][land]) continue;
+      if (all >> land & 1) continue;
+
+      let nb = b, nw = w;
+      let isCapture = false;
+
+      if (turn === 0) {
+        nb = (nb & ~(1 << f)) | (1 << land);
+        if (w >> mid & 1) {
+          nw &= ~(1 << mid);
+          isCapture = true;   // 吃到敵方！
+        }
+        // 如果跳過的是己方（b >> mid & 1），則 isCapture = false，不吃
+      } else {
+        nw = (nw & ~(1 << f)) | (1 << land);
+        if (b >> mid & 1) {
+          nb &= ~(1 << mid);
+          isCapture = true;   // 吃到敵方！
+        }
+        // 如果跳過的是己方（w >> mid & 1），則 isCapture = false，不吃
+      }
+
+      // 所有跳法都加入 jumpResults
+      jumpResults.push([nb, nw]);
+
+      // 如果能吃掉敵方，也加入 captureResults
+      if (isCapture) {
+        captureResults.push([nb, nw]);
+      }
+
+      // 繼續連跳（傳入正確的參數）
+      jumpDFS(land, nb, nw, turn, (1 << f) | (1 << land), jumpResults, captureResults);
+    }
+  }
+
+  // 【核心規則】
+  // 如果存在任何能吃掉敵方的跳法 → 強制只回傳這些跳吃走法
+  if (captureResults.length > 0) {
+    return captureResults;
+  }
+
+  // 沒有能吃掉敵方的跳法 → 回傳所有走法（步行 + 跳過己方）
+  // ⚠️ 注意：要把步行和跳法合併，不能只回傳跳法！
+  const allMoves = [...stepResults, ...jumpResults];
+  return allMoves;
+}
+
+function checkTerminal(b,w,turn){
+  const bc=popcount(b), wc=popcount(w);
+  if(bc===0) return [true,1];
+  if(wc===0) return [true,0];
+  const myMoves  = getMoves(b,w,turn);
+  const oppMoves = getMoves(b,w,1-turn);
+  if(myMoves.length>0) return [false,-1];
+  if(oppMoves.length===0){
+    if(bc>wc) return [true,0];
+    if(wc>bc) return [true,1];
+    return [true,-1];
+  }
+  return [true,1-turn];
+}
+
+function popcount(n){
+  let c=0;
+  for(let x=n;x;x&=x-1) c++;
+  return c;
+}
+
+// ═══════════════════════════════════════════════════════
+//  INITIAL STATE
+// ═══════════════════════════════════════════════════════
+function initialState(){
+  let b=0,w=0;
+  for(let x=0;x<5;x++){
+    w|=1<<IDX(x,0);
+    w|=1<<IDX(x,1);
+  }
+  w|=1<<IDX(0,2); w|=1<<IDX(1,2);
+  b|=1<<IDX(3,2); b|=1<<IDX(4,2);
+  for(let x=0;x<5;x++){
+    b|=1<<IDX(x,3);
+    b|=1<<IDX(x,4);
+  }
+  return [b,w];
+}
+
+// ═══════════════════════════════════════════════════════
+//  ALPHA-BETA EVALUATION
+// ═══════════════════════════════════════════════════════
+const INF = 1000000;
+
+function evaluate(b,w,turn){
+  const bc=popcount(b), wc=popcount(w);
+  if(bc===0) return turn===1 ? INF : -INF;
+  if(wc===0) return turn===0 ? INF : -INF;
+
+  // Piece count advantage
+  let score = (bc-wc)*100;
+
+  // Advancement score: black wants low y, white wants high y
+  let bAdv=0, wAdv=0;
+  for(let i=0;i<25;i++){
+    if(b>>i&1) bAdv += (4-GY(i));
+    if(w>>i&1) wAdv += GY(i);
+  }
+  score += (bAdv-wAdv)*12;
+
+  // Mobility
+  const bMoves = getMoves(b,w,0).length;
+  const wMoves = getMoves(b,w,1).length;
+  score += (bMoves-wMoves)*4;
+
+  // Blockade threat: if opponent can't move, big bonus
+  if(turn===0 && wMoves===0) score += 800;
+  if(turn===1 && bMoves===0) score -= 800;
+
+  // Capture potential: count valid jumps over enemy (respects EDGE graph)
+  let bCapPot=0, wCapPot=0;
+  for(let f=0;f<25;f++){
+    if(b>>f&1){
+      const fx=GX(f),fy=GY(f);
+      for(const [dx,dy] of JUMP_DIRS){
+        if(!isForward(0,dy)) continue;
+        const mx=fx+dx,my_=fy+dy;
+        if(mx<0||mx>4||my_<0||my_>4) continue;
+        const mid=IDX(mx,my_);
+        if(!EDGE[f][mid]) continue;
+        if(!(w>>mid&1)) continue;
+        const lx=mx+dx,ly=my_+dy;
+        if(lx<0||lx>4||ly<0||ly>4) continue;
+        const land=IDX(lx,ly);
+        if(!EDGE[mid][land]) continue;
+        if((b|w)>>land&1) continue;
+        bCapPot++;
+      }
+    }
+    if(w>>f&1){
+      const fx=GX(f),fy=GY(f);
+      for(const [dx,dy] of JUMP_DIRS){
+        if(!isForward(1,dy)) continue;
+        const mx=fx+dx,my_=fy+dy;
+        if(mx<0||mx>4||my_<0||my_>4) continue;
+        const mid=IDX(mx,my_);
+        if(!EDGE[f][mid]) continue;
+        if(!(b>>mid&1)) continue;
+        const lx=mx+dx,ly=my_+dy;
+        if(lx<0||lx>4||ly<0||ly>4) continue;
+        const land=IDX(lx,ly);
+        if(!EDGE[mid][land]) continue;
+        if((b|w)>>land&1) continue;
+        wCapPot++;
+      }
+    }
+  }
+  score += (bCapPot-wCapPot)*6;
+
+  // Cohesion: pieces adjacent to own pieces
+  let bCoh=0, wCoh=0;
+  for(let i=0;i<25;i++){
+    if(b>>i&1) for(const j of ADJ[i]) if(b>>j&1) bCoh++;
+    if(w>>i&1) for(const j of ADJ[i]) if(w>>j&1) wCoh++;
+  }
+  score += (bCoh-wCoh)*2;
+
+  return turn===0 ? score : -score;
+}
+
+// Move ordering: captures first, then advanced moves
+function orderMoves(moves,b,w,turn){
+  return moves.map(([nb,nw])=>{
+    const op = turn===0?w:b;
+    const nop= turn===0?nw:nb;
+    const caps = popcount(op)-popcount(nop);
+    const my = turn===0?b:w;
+    const nm = turn===0?nb:nw;
+    // advancement: sum of y changes
+    let adv=0;
+    const diff_from = my&~nm, diff_to=nm&~my;
+    for(let i=0;i<25;i++){
+      if(diff_from>>i&1) adv -= GY(i)*(turn===0?1:-1);
+      if(diff_to>>i&1)   adv += GY(i)*(turn===0?1:-1);
+    }
+    const priority = caps*1000 + (turn===0?-adv:adv)*10;
+    return {nb,nw,priority,caps};
+  }).sort((a,b)=>b.priority-a.priority).map(({nb,nw,caps})=>[nb,nw,caps]);
+}
+
+// Transposition table
+const TT = new Map();
+const TT_MAX = 100000;
+
+function ttKey(b,w,turn,depth){ return `${b}_${w}_${turn}_${depth}`; }
+
+function alphaBeta(b,w,turn,depth,alpha,beta,root){
+  const [term,winner]=checkTerminal(b,w,turn);
+  if(term){
+    if(winner===-1) return 0;
+    // winner matches current player's opponent (terminal = current has no moves or all captured)
+    return winner===turn ? INF-1 : -(INF-1);
+  }
+  if(depth===0) return evaluate(b,w,turn);
+
+  const key=ttKey(b,w,turn,depth);
+  if(!root && TT.has(key)){
+    const {v,a,be,flag}=TT.get(key);
+    if(flag==='exact') return v;
+    if(flag==='lower') alpha=Math.max(alpha,v);
+    if(flag==='upper') beta=Math.min(beta,v);
+    if(alpha>=beta) return v;
+  }
+
+  const rawMoves=getMoves(b,w,turn);
+  if(rawMoves.length===0) return -(INF-1);
+  const moves=orderMoves(rawMoves,b,w,turn);
+
+  let bestVal=-INF;
+  let origAlpha=alpha;
+
+  for(const [nb,nw] of moves){
+    const val=-alphaBeta(nb,nw,1-turn,depth-1,-beta,-alpha,false);
+    if(val>bestVal) bestVal=val;
+    if(val>alpha) alpha=val;
+    if(alpha>=beta) break;
+  }
+
+  // TT store
+  if(TT.size>TT_MAX) TT.clear();
+  const flag=bestVal<=origAlpha?'upper':bestVal>=beta?'lower':'exact';
+  TT.set(key,{v:bestVal,a:alpha,be:beta,flag});
+
+  return bestVal;
+}
+
+function getBestMove(b,w,turn,maxDepth){
+  TT.clear();
+  const rawMoves=getMoves(b,w,turn);
+  if(rawMoves.length===0) return null;
+  const moves=orderMoves(rawMoves,b,w,turn);
+
+  let bestMove=moves[0];
+  let bestVal=-INF;
+
+  // Iterative deepening
+  for(let d=1;d<=maxDepth;d++){
+    let localBest=moves[0], localVal=-INF;
+    for(const [nb,nw,caps] of moves){
+      const val=-alphaBeta(nb,nw,1-turn,d-1,-INF,INF,false);
+      if(val>localVal){ localVal=val; localBest=[nb,nw,caps]; }
+    }
+    bestVal=localVal;
+    bestMove=localBest;
+    if(localVal>=INF-10) break; // found forced win
+  }
+  return {move:bestMove, score:bestVal};
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════
+let state = {
+  b:0, w:0, turn:0,
+  mode:'pvp',       // pvp | pva | ava | edit
+  playerSide:0,     // human plays black(0) or white(1) in pva
+  aiDepth:4,
+  selected:null,    // index of selected piece
+  validMoves:[],    // [{nb,nw,toIdx}]
+  history:[],       // [{b,w,turn}]
+  moveLog:[],       // string entries
+  moveNum:0,
+  editTool:'black',
+  editTurn:0,
+  aiRunning:false,
+  hintMove:null,
+  midJump:null,     // {fromIdx, curIdx, b, w, visited} — mid-chain jump state
+};
+
+function newGame(){
+  const [b,w]=initialState();
+  Object.assign(state,{
+    b,w,turn:0,
+    selected:null, validMoves:[],
+    history:[], moveLog:[], moveNum:0,
+    aiRunning:false, hintMove:null, midJump:null,
+  });
+  TT.clear();
+  renderBoard();
+  updateUI();
+  updateStatus('遊戲開始，黑方先走','black');
+  document.getElementById('analysisBox').textContent='等待分析...';
+  document.getElementById('historyLog').innerHTML='— 對局開始 —';
+  if(state.mode==='pva' && state.playerSide===1) setTimeout(aiMove,300);
+}
+
+function onSettingChange(){
+  state.playerSide = parseInt(document.getElementById('playerSide').value);
+  state.aiDepth    = parseInt(document.getElementById('aiDepth').value);
+}
+
+// ═══════════════════════════════════════════════════════
+//  MODE MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function setMode(m){
+  state.mode=m;
+  document.querySelectorAll('.mode-btn').forEach((b,i)=>{
+    b.classList.toggle('active', ['pvp','pva','edit'][i]===m);
+  });
+  document.getElementById('editToolbar').classList.toggle('visible', m==='edit');
+  newGame();
+}
+
+function setEditTool(t){
+  state.editTool=t;
+  ['editBlack','editWhite','editEmpty'].forEach(id=>{
+    document.getElementById(id).classList.toggle('active', id==='edit'+t.charAt(0).toUpperCase()+t.slice(1));
+  });
+}
+
+function setEditTurn(t){
+  state.editTurn=t;
+  state.turn=t;
+  document.getElementById('editTurnB').classList.toggle('active',t===0);
+  document.getElementById('editTurnW').classList.toggle('active',t===1);
+}
+
+// ═══════════════════════════════════════════════════════
+//  BOARD SVG RENDERING
+// ═══════════════════════════════════════════════════════
+const CELL=88, PAD=28;
+// point center: x→col, y→row
+const px=(x)=>PAD+x*CELL+CELL/2;
+const py=(y)=>PAD+y*CELL+CELL/2;
+
+function renderBoard(){
+  const svg=document.getElementById('board-svg');
+  svg.innerHTML='';
+
+  const W=480,H=480;
+
+  // Background
+  const bg=el('rect',{x:0,y:0,width:W,height:H,fill:'#1a1610',rx:4});
+  svg.appendChild(bg);
+
+  // Grid lines
+  const gridG=el('g',{stroke:'#3a3520','stroke-width':'1.5',opacity:'0.8'});
+  for(let r=0;r<5;r++) for(let c=0;c<5;c++){
+    const cx=px(c),cy=py(r);
+    if(c<4){ const ln=el('line',{x1:cx,y1:cy,x2:px(c+1),y2:cy}); gridG.appendChild(ln); }
+    if(r<4){ const ln=el('line',{x1:cx,y1:cy,x2:cx,y2:py(r+1)}); gridG.appendChild(ln); }
+  }
+  // Diagonal lines: all unit diagonals for nodes where (x+y)%2===0
+  for(let y=0;y<5;y++) for(let x=0;x<5;x++){
+    if((x+y)%2!==0) continue;
+    if(x+1<5&&y+1<5){
+      const d=el('line',{x1:px(x),y1:py(y),x2:px(x+1),y2:py(y+1),
+        stroke:'#6a5f38','stroke-width':'1.5'});
+      svg.appendChild(d);
+    }
+    if(x-1>=0&&y+1<5){
+      const d=el('line',{x1:px(x),y1:py(y),x2:px(x-1),y2:py(y+1),
+        stroke:'#6a5f38','stroke-width':'1.5'});
+      svg.appendChild(d);
+    }
+  }
+  svg.appendChild(gridG);
+
+  // Board border decorations
+  const frame=el('rect',{x:PAD/2,y:PAD/2,width:W-PAD,height:H-PAD,
+    fill:'none',stroke:'#3a3520','stroke-width':'1',rx:2,opacity:'0.5'});
+  svg.appendChild(frame);
+
+  // Direction indicators
+  const arrB=el('text',{x:px(4)+16,y:py(4)+6,fill:'#555','font-size':'18',
+    'text-anchor':'middle','font-family':'serif'});
+  arrB.textContent='↑';
+  const arrW=el('text',{x:px(4)+16,y:py(0)+6,fill:'#888','font-size':'18',
+    'text-anchor':'middle','font-family':'serif'});
+  arrW.textContent='↓';
+  svg.appendChild(arrB); svg.appendChild(arrW);
+
+  // Highlight valid move targets
+  for(const {toIdx} of state.validMoves){
+    const hx=GX(toIdx), hy=GY(toIdx);
+    const h=el('circle',{cx:px(hx),cy:py(hy),r:18,
+      fill:'rgba(201,168,76,0.15)',stroke:'#c9a84c','stroke-width':'1.5',
+      'stroke-dasharray':'4,3'});
+    svg.appendChild(h);
+  }
+
+  // Hint highlight
+  if(state.hintMove){
+    const [nb,nw]=state.hintMove;
+    const my=state.turn===0?state.b:state.w;
+    const nm=state.turn===0?nb:nw;
+    const fromBits=my&~nm, toBits=nm&~my;
+    for(let i=0;i<25;i++){
+      if(fromBits>>i&1){
+        const h=el('circle',{cx:px(GX(i)),cy:py(GY(i)),r:22,
+          fill:'none',stroke:'#27ae60','stroke-width':'2','stroke-dasharray':'6,3'});
+        svg.appendChild(h);
+      }
+      if(toBits>>i&1){
+        const h=el('circle',{cx:px(GX(i)),cy:py(GY(i)),r:18,
+          fill:'rgba(39,174,96,0.2)',stroke:'#27ae60','stroke-width':'1.5'});
+        svg.appendChild(h);
+      }
+    }
+  }
+
+  // Pieces — use midJump board if in chain-jump mode
+  const dispB = state.midJump ? state.midJump.b : state.b;
+  const dispW = state.midJump ? state.midJump.w : state.w;
+  for(let i=0;i<25;i++){
+    const x=GX(i),y=GY(i);
+    const cx_=px(x),cy_=py(y);
+    const isBlack=dispB>>i&1;
+    const isWhite=dispW>>i&1;
+    const isSelected=state.selected===i;
+
+    if(!isBlack && !isWhite) continue;
+
+    const g=el('g',{cursor:'pointer','data-idx':i});
+    g.addEventListener('click',()=>handleClick(i));
+
+    // Shadow
+    const sh=el('circle',{cx:cx_+2,cy:cy_+3,r:18,fill:'rgba(0,0,0,0.5)'});
+    g.appendChild(sh);
+
+    // Selection ring
+    if(isSelected){
+      const ring=el('circle',{cx:cx_,cy:cy_,r:22,
+        fill:'none',stroke:'#c9a84c','stroke-width':'2.5'});
+      g.appendChild(ring);
+    }
+
+    // Piece body
+    const pieceId=`piece_grad_${i}_${isBlack?'b':'w'}`;
+    const grad=el('radialGradient',{id:pieceId,cx:'35%',cy:'30%',r:'65%'});
+    if(isBlack){
+      grad.appendChild(stop('0%','#6a6050'));
+      grad.appendChild(stop('100%','#1a1008'));
+    } else {
+      grad.appendChild(stop('0%','#ffffff'));
+      grad.appendChild(stop('100%','#c0b090'));
+    }
+    let defs=svg.querySelector('defs');
+    if(!defs){ defs=el('defs',{}); svg.insertBefore(defs,svg.firstChild); }
+    defs.appendChild(grad);
+
+    const circle=el('circle',{cx:cx_,cy:cy_,r:18,fill:`url(#${pieceId})`});
+    if(isBlack) circle.setAttribute('stroke','#4a4030');
+    else        circle.setAttribute('stroke','#d0c0a0');
+    circle.setAttribute('stroke-width','1');
+    g.appendChild(circle);
+
+    // Shine
+    const shine=el('ellipse',{cx:cx_-5,cy:cy_-6,rx:7,ry:5,
+      fill:isBlack?'rgba(255,255,255,0.12)':'rgba(255,255,255,0.5)'});
+    g.appendChild(shine);
+
+    svg.appendChild(g);
+  }
+
+  // Clickable empty squares (for moves / edit)
+  for(let i=0;i<25;i++){
+    if(dispB>>i&1 || dispW>>i&1) continue;
+    const x=GX(i),y=GY(i);
+    const hit=el('circle',{cx:px(x),cy:py(y),r:20,
+      fill:'transparent',cursor:'pointer','data-idx':i});
+    hit.addEventListener('click',()=>handleClick(i));
+    svg.appendChild(hit);
+  }
+
+  // Coordinates
+  const colLabels=document.getElementById('coordRow');
+  const rowLabels=document.getElementById('coordCol');
+  colLabels.innerHTML='';
+  rowLabels.innerHTML='';
+  const cols='ABCDE';
+  colLabels.style.width=(W-4)+'px';
+  for(let x=0;x<5;x++){
+    const s=document.createElement('span');
+    s.textContent=cols[x];
+    s.style.width=(CELL)+'px';
+    s.style.textAlign='center';
+    colLabels.appendChild(s);
+  }
+  rowLabels.style.height=(H-4)+'px';
+  for(let y=0;y<5;y++){
+    const s=document.createElement('span');
+    s.textContent=y;
+    s.style.height=(CELL)+'px';
+    s.style.lineHeight=(CELL)+'px';
+    rowLabels.appendChild(s);
+  }
+}
+
+function el(tag,attrs){
+  const e=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const [k,v] of Object.entries(attrs)) e.setAttribute(k,v);
+  return e;
+}
+function stop(offset,color){
+  return el('stop',{'offset':offset,'stop-color':color});
+}
+
+// ═══════════════════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════════════════
+function handleClick(idx){
+  if(state.aiRunning) return;
+  const [term]=checkTerminal(state.b,state.w,state.turn);
+  if(term) return;
+
+  // Edit mode
+  if(state.mode==='edit'){
+    handleEditClick(idx);
+    return;
+  }
+
+  // Check if it's human's turn
+  if(state.mode==='pva'){
+    if(state.turn!==state.playerSide) return;
+  }
+
+  const myBits = state.turn===0?state.b:state.w;
+
+  // ── Mid-jump mode: only the jumping piece can be "selected" ──
+  if(state.midJump){
+    const mj=state.midJump;
+
+    // Clicked a valid next-jump target
+    const target=state.validMoves.find(m=>m.toIdx===idx);
+    if(target){
+      // Apply this one jump step onto midJump board
+      const nb=target.nb, nw=target.nw;
+      const newVisited=mj.visited|(1<<idx);
+
+      // Check if further jumps are possible from here
+      const nextJumps=getJumpsFromPos(idx, nb, nw, state.turn, newVisited);
+      if(nextJumps.length>0){
+        // Stay in mid-jump mode
+        state.midJump={fromIdx:mj.fromIdx, curIdx:idx, b:nb, w:nw, visited:newVisited};
+        state.selected=idx;
+        state.validMoves=nextJumps;
+        renderBoard();
+        updateStatus('連跳中，選擇下一個落點（或點擊棋子結束）', state.turn===0?'black':'white');
+      } else {
+        // Chain ends — commit the full move
+        state.midJump=null;
+        applyMove(nb, nw);
+      }
+      return;
+    }
+
+    // Clicked the jumping piece itself — end chain early (only if at least one jump done)
+    if(idx===mj.curIdx && mj.b!==state.b){
+      state.midJump=null;
+      applyMove(mj.b, mj.w);
+      return;
+    }
+
+    // Clicked elsewhere during mid-jump: ignore
+    return;
+  }
+
+  // ── Normal selection ──
+  // Clicked a valid move target
+  const target=state.validMoves.find(m=>m.toIdx===idx);
+  if(target){
+    const nb=target.nb, nw=target.nw;
+    // Check if this is a jump move with possible continuation
+    const allMoves=getMoves(state.b,state.w,state.turn);
+    const isJumpMove = isCapture(state.b,state.w,nb,nw,state.turn);
+    if(isJumpMove){
+      const visited=(1<<(state.selected??idx))|(1<<idx);
+      const nextJumps=getJumpsFromPos(idx, nb, nw, state.turn, visited);
+      if(nextJumps.length>0){
+        // Enter mid-jump mode
+        state.midJump={fromIdx:state.selected??idx, curIdx:idx, b:nb, w:nw, visited};
+        state.selected=idx;
+        state.validMoves=nextJumps;
+        renderBoard();
+        updateStatus('連跳中，選擇下一個落點（或點擊棋子結束）', state.turn===0?'black':'white');
+        return;
+      }
+    }
+    applyMove(nb, nw);
+    return;
+  }
+
+  // Clicked own piece
+  if(myBits>>idx&1){
+    state.selected=idx;
+    state.hintMove=null;
+    computeValidMovesForPiece(idx);
+    renderBoard();
+    return;
+  }
+
+  // Clicked elsewhere: deselect
+  state.selected=null;
+  state.validMoves=[];
+  renderBoard();
+}
+
+// Returns true if the move (b->nb, w->nw) captured at least one piece
+function isCapture(b,w,nb,nw,turn){
+  const op=turn===0?w:b, nop=turn===0?nw:nb;
+  return popcount(op)>popcount(nop);
+}
+
+// Returns valid one-step jumps from pos on board (nb,nw), excluding visited squares
+function getJumpsFromPos(pos, b, w, turn, visited){
+  const fx=GX(pos), fy=GY(pos);
+  const op=turn===0?w:b;
+  const all=b|w;
+  const moves=[];
+  for(const [dx,dy] of JUMP_DIRS){
+    if(!isForward(turn,dy)) continue;
+    const mx=fx+dx, my_=fy+dy;
+    if(mx<0||mx>4||my_<0||my_>4) continue;
+    const mid=IDX(mx,my_);
+    if(!EDGE[pos][mid]) continue;
+    if(!(op>>mid&1)) continue;
+    const lx=mx+dx, ly=my_+dy;
+    if(lx<0||lx>4||ly<0||ly>4) continue;
+    const land=IDX(lx,ly);
+    if(!EDGE[mid][land]) continue;
+    if(all>>land&1) continue;
+    if(visited>>land&1) continue;
+    let nb=b,nw=w;
+    if(turn===0){ nb=(nb&~(1<<pos))|(1<<land); nw&=~(1<<mid); }
+    else        { nw=(nw&~(1<<pos))|(1<<land); nb&=~(1<<mid); }
+    moves.push({nb,nw,toIdx:land});
+  }
+  return moves;
+}
+
+function computeValidMovesForPiece(fromIdx){
+  const allMoves=getMoves(state.b,state.w,state.turn);
+  const my=state.turn===0?state.b:state.w;
+  state.validMoves=[];
+  for(const [nb,nw] of allMoves){
+    const nm=state.turn===0?nb:nw;
+    const fromBits=my&~nm;
+    if(fromBits>>fromIdx&1){
+      const toBits=nm&~my;
+      for(let i=0;i<25;i++){
+        if(toBits>>i&1) state.validMoves.push({nb,nw,toIdx:i});
+      }
+    }
+  }
+}
+
+function handleEditClick(idx){
+  const tool=state.editTool;
+  let b=state.b, w=state.w;
+  b&=~(1<<idx);
+  w&=~(1<<idx);
+  if(tool==='black') b|=(1<<idx);
+  if(tool==='white') w|=(1<<idx);
+  state.b=b; state.w=w;
+  state.turn=state.editTurn;
+  renderBoard();
+  updateUI();
+}
+
+// ═══════════════════════════════════════════════════════
+//  APPLY MOVE
+// ═══════════════════════════════════════════════════════
+function applyMove(nb,nw,isAI){
+  // Log
+  const my  = state.turn===0?state.b:state.w;
+  const nm  = state.turn===0?nb:nw;
+  const op  = state.turn===0?state.w:state.b;
+  const nop = state.turn===0?nw:nb;
+  const fromBits=my&~nm, toBits=nm&~my;
+  const caps=popcount(op)-popcount(nop);
+
+  let fromStrs=[], toStrs=[];
+  for(let i=0;i<25;i++){
+    if(fromBits>>i&1) fromStrs.push(`${'ABCDE'[GX(i)]}${GY(i)}`);
+    if(toBits>>i&1)   toStrs.push(`${'ABCDE'[GX(i)]}${GY(i)}`);
+  }
+  const side=state.turn===0?'黑':'白';
+  let logStr=`${++state.moveNum}. [${side}] ${fromStrs.join(',')}→${toStrs.join(',')}`;
+  if(caps>0) logStr+=` 吃${caps}子`;
+
+  // Save history
+  state.history.push({b:state.b,w:state.w,turn:state.turn});
+  state.moveLog.push({text:logStr,turn:state.turn,caps});
+
+  state.b=nb; state.w=nw;
+  state.turn=1-state.turn;
+  state.selected=null;
+  state.validMoves=[];
+  state.hintMove=null;
+
+  renderBoard();
+  updateUI();
+  addLogEntry(logStr,state.turn===1,caps>0);
+
+  // Check terminal
+  const [term,winner]=checkTerminal(state.b,state.w,state.turn);
+  if(term){
+    showWin(winner);
+    return;
+  }
+
+  // Status
+  const nextSide=state.turn===0?'黑方':'白方';
+  const dot=state.turn===0?'black':'white';
+  updateStatus(`${nextSide}的回合`,dot);
+
+  // Trigger AI?
+  if(state.mode==='pva' && state.turn!==state.playerSide) setTimeout(aiMove,400);
+}
+
+// ═══════════════════════════════════════════════════════
+//  AI MOVE
+// ═══════════════════════════════════════════════════════
+function aiMove(){
+  if(state.aiRunning) return;
+  const [term]=checkTerminal(state.b,state.w,state.turn);
+  if(term) return;
+  state.aiRunning=true;
+
+  const dot=state.turn===0?'ai':'ai';
+  document.getElementById('statusDot').className='status-indicator ai';
+  document.getElementById('statusThinking').style.display='block';
+  document.getElementById('statusText').textContent='AI 思考中...';
+
+  setTimeout(()=>{
+    const depth=state.aiDepth;
+    const result=getBestMove(state.b,state.w,state.turn,depth);
+    state.aiRunning=false;
+    document.getElementById('statusThinking').style.display='none';
+
+    if(!result || !result.move){
+      // no moves
+      state.turn=1-state.turn;
+      const [term2,winner]=checkTerminal(state.b,state.w,state.turn);
+      if(term2) showWin(winner);
+      return;
+    }
+    const [nb,nw]=result.move;
+    applyMove(nb,nw,true);
+
+    // Show score in analysis
+    const scoreStr = result.score>50000?'勝勢' : result.score>200?`+${result.score}` :
+                     result.score<-50000?'敗勢' : result.score<-200?`${result.score}` : `${result.score}`;
+    document.getElementById('analysisBox').innerHTML =
+      `<span class="highlight">AI (深度${depth}) 評分：${scoreStr}</span>`;
+  }, 10);
+}
+
+// ═══════════════════════════════════════════════════════
+//  UNDO
+// ═══════════════════════════════════════════════════════
+function undoMove(){
+  if(state.history.length===0) return;
+  // In PvA mode, undo 2 steps (AI + human)
+  let steps = state.mode==='pva' ? 2 : 1;
+  steps = Math.min(steps, state.history.length);
+  for(let i=0;i<steps;i++){
+    const prev=state.history.pop();
+    state.moveLog.pop();
+    state.b=prev.b; state.w=prev.w; state.turn=prev.turn;
+    state.moveNum--;
+  }
+  state.selected=null; state.validMoves=[]; state.hintMove=null; state.midJump=null;
+  TT.clear();
+  renderBoard();
+  updateUI();
+  updateStatus(`悔棋完成，${state.turn===0?'黑':'白'}方回合`, state.turn===0?'black':'white');
+  rebuildLog();
+}
+
+function rebuildLog(){
+  const log=document.getElementById('historyLog');
+  log.innerHTML='';
+  if(state.moveLog.length===0){ log.innerHTML='— 對局開始 —'; return; }
+  for(const {text,turn:t,caps} of state.moveLog){
+    const d=document.createElement('div');
+    d.className='history-entry'+(t===0?' white-move':' black-move')+(caps?' capture':'');
+    d.textContent=text;
+    log.appendChild(d);
+  }
+  log.scrollTop=log.scrollHeight;
+}
+
+function addLogEntry(text,isWhite,isCapture){
+  const log=document.getElementById('historyLog');
+  if(log.innerHTML==='— 對局開始 —') log.innerHTML='';
+  const d=document.createElement('div');
+  d.className='history-entry'+(isWhite?' white-move':' black-move')+(isCapture?' capture':'');
+  d.textContent=text;
+  log.appendChild(d);
+  log.scrollTop=log.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ANALYSIS & HINT
+// ═══════════════════════════════════════════════════════
+function analyzePosition(){
+  const box=document.getElementById('analysisBox');
+  box.innerHTML='分析中...';
+  setTimeout(()=>{
+    const bc=popcount(state.b), wc=popcount(state.w);
+    const bMoves=getMoves(state.b,state.w,0).length;
+    const wMoves=getMoves(state.b,state.w,1).length;
+    let bAdv=0,wAdv=0;
+    for(let i=0;i<25;i++){
+      if(state.b>>i&1) bAdv+=(4-GY(i));
+      if(state.w>>i&1) wAdv+=GY(i);
+    }
+    const result=getBestMove(state.b,state.w,state.turn,state.aiDepth);
+    const scoreRaw=result?result.score:0;
+    const scoreStr=scoreRaw>50000?'黑方勝勢（必勝）':
+                   scoreRaw<-50000?'白方勝勢（必勝）':
+                   scoreRaw>300?`黑方優勢 +${scoreRaw}`:
+                   scoreRaw<-300?`白方優勢 ${scoreRaw}`:
+                   `局面均勢 (${scoreRaw})`;
+    const side=state.turn===0?'黑方':'白方';
+    box.innerHTML=
+`<span class="highlight">局面評估：${scoreStr}</span>
+黑子：${bc}  白子：${wc}
+黑方走法：${bMoves}  白方走法：${wMoves}
+黑方前進度：${bAdv}  白方前進度：${wAdv}
+當前輪到：${side}`;
+  },10);
+}
+
+function showHint(){
+  setTimeout(()=>{
+    const result=getBestMove(state.b,state.w,state.turn,state.aiDepth);
+    if(!result || !result.move){ 
+      document.getElementById('analysisBox').textContent='無可用走法'; 
+      return;
+    }
+    state.hintMove=result.move;
+    state.selected=null;
+    state.validMoves=[];
+    renderBoard();
+    const [nb,nw]=result.move;
+    const my=state.turn===0?state.b:state.w;
+    const nm=state.turn===0?nb:nw;
+    const fromBits=my&~nm,toBits=nm&~my;
+    const froms=[],tos=[];
+    for(let i=0;i<25;i++){
+      if(fromBits>>i&1) froms.push(`${'ABCDE'[GX(i)]}${GY(i)}`);
+      if(toBits>>i&1)   tos.push(`${'ABCDE'[GX(i)]}${GY(i)}`);
+    }
+    document.getElementById('analysisBox').innerHTML=
+      `<span class="highlight">建議走法</span>\n${froms.join(',')} → ${tos.join(',')}\n評分：${result.score}`;
+  },10);
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════
+function updateUI(){
+  const bc=popcount(state.b), wc=popcount(state.w);
+  const bEl=document.getElementById('scoreBlack');
+  const wEl=document.getElementById('scoreWhite');
+  bEl.textContent=bc; wEl.textContent=wc;
+  bEl.className='score-num'+(bc>wc?' winning':bc<wc?' losing':'');
+  wEl.className='score-num'+(wc>bc?' winning':wc<bc?' losing':'');
+  document.getElementById('moveCount').textContent=`第 ${state.moveNum} 手`;
+  document.getElementById('undoBtn').disabled=(state.history.length===0);
+}
+
+function updateStatus(text, dotClass){
+  document.getElementById('statusText').textContent=text;
+  document.getElementById('statusDot').className='status-indicator '+dotClass;
+}
+
+function showWin(winner){
+  const title=winner===0?'黑方獲勝！':winner===1?'白方獲勝！':'平局';
+  const sub=winner===0?'Black Wins':winner===1?'White Wins':'Draw';
+  document.getElementById('winTitle').textContent=title;
+  document.getElementById('winSub').textContent=sub;
+  document.getElementById('winOverlay').classList.add('visible');
+  updateStatus(title, winner===0?'black':winner===1?'white':'ai');
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+newGame();
+</script>
+</body>
+</html>

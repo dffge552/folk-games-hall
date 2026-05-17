@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>單線跳棋 - AlphaBeta AI</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:sans-serif;background:#1a1a2e;color:#eee;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px}
+    h1{font-size:20px;font-weight:500;margin:12px 0 4px;color:#c8d6e5}
+    .subtitle{font-size:13px;color:#888;margin-bottom:14px}
+    .mode-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:center}
+    .mode-btn{padding:6px 14px;border-radius:8px;border:1.5px solid #444;background:#16213e;color:#aac;cursor:pointer;font-size:13px;transition:all .15s}
+    .mode-btn.active,.mode-btn:hover{background:#0f3460;border-color:#a29bfe;color:#fff}
+    .board-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:14px}
+    .cells{display:flex;gap:6px}
+    .cell{width:52px;height:52px;border-radius:10px;background:#16213e;border:2px solid #2d3561;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:border-color .15s,background .15s}
+    .cell.selected{border-color:#a29bfe;background:#1f1b6e}
+    .cell.movable{border-color:#00b894;background:#0d3d2e;cursor:pointer}
+    .cell.movable:hover{background:#0f4e3a}
+    .cell:hover:not(.selected):not(.movable){border-color:#555}
+    .cell.ai-from { border-color: #0984e3; background: #0c2d4a; box-shadow: 0 0 0 2px #0984e3; }
+    .cell.ai-to { border-color: #00b894; background: #0d3d2e; box-shadow: 0 0 0 2px #00b894; }
+    .piece{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:bold;transition:transform .12s}
+    .piece.black{background:radial-gradient(circle at 35% 35%,#6c5ce7,#2d3561);color:#dfe6e9;box-shadow:0 2px 8px #0006}
+    .piece.white{background:radial-gradient(circle at 35% 35%,#f5f6fa,#b2bec3);color:#2d3561;box-shadow:0 2px 8px #0006}
+    .cell-idx{position:absolute;bottom:2px;right:4px;font-size:9px;color:#555}
+    .label-row{display:flex;gap:6px}
+    .label{width:52px;text-align:center;font-size:11px;color:#555}
+    .dest-black{color:#a29bfe}
+    .dest-white{color:#fd79a8}
+    .info-bar{display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;justify-content:center}
+    .info-card{background:#16213e;border:1px solid #2d3561;border-radius:10px;padding:8px 18px;text-align:center}
+    .info-card .val{font-size:22px;font-weight:500}
+    .info-card .lbl{font-size:11px;color:#888;margin-top:2px}
+    .turn-black .val{color:#a29bfe}
+    .turn-white .val{color:#fd79a8}
+    .btn-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center}
+    button{padding:7px 16px;border-radius:8px;border:1.5px solid #444;background:#16213e;color:#aac;cursor:pointer;font-size:13px;transition:all .15s}
+    button:hover{background:#0f3460;border-color:#a29bfe;color:#fff}
+    button:disabled{opacity:.4;cursor:not-allowed}
+    .analysis-box{width:100%;max-width:700px;background:#16213e;border:1px solid #2d3561;border-radius:12px;padding:14px 18px;font-size:13px;line-height:1.7;min-height:60px;display:none}
+    .analysis-box h3{font-size:14px;font-weight:500;color:#74b9ff;margin-bottom:8px}
+    .analysis-line{margin:3px 0;color:#ccc}
+    .analysis-line.win{color:#55efc4}
+    .analysis-line.lose{color:#fd79a8}
+    .analysis-line.draw{color:#fdcb6e}
+    .analysis-line.info{color:#74b9ff}
+    .edit-note{font-size:11px;color:#f9ca24;margin-bottom:8px;text-align:center}
+    .overlay{position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:100}
+    .dialog{background:#1a1a2e;border:1.5px solid #a29bfe;border-radius:16px;padding:28px 36px;text-align:center;max-width:340px}
+    .dialog h2{font-size:22px;margin-bottom:8px}
+    .dialog p{color:#aaa;font-size:14px;margin-bottom:20px}
+    .dialog .big{font-size:28px;color:#a29bfe;margin-bottom:10px}
+    .dialog-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .dialog-btns button{padding:9px 22px}
+    .loading{color:#888;font-size:13px;font-style:italic}
+    .ai-tag{background:#0f3460;border-radius:12px;padding:2px 8px;font-size:10px;margin-left:6px;color:#a29bfe}
+
+    /* 遊戲說明彈窗樣式 */
+    .help-dialog {
+      background: #16213e;
+      border: 2px solid #a29bfe;
+      border-radius: 20px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+
+    .help-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #2d3561;
+      background: #0f3460;
+      border-radius: 18px 18px 0 0;
+    }
+
+    .help-header h2 {
+      margin: 0;
+      font-size: 18px;
+      color: #a29bfe;
+    }
+
+    .help-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: #888;
+      padding: 0;
+      margin: 0;
+    }
+
+    .help-close:hover {
+      color: #fff;
+      background: none;
+      border: none;
+    }
+
+    .help-body {
+      padding: 20px;
+      color: #ddd;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .help-body h3 {
+      color: #74b9ff;
+      font-size: 16px;
+      margin: 16px 0 8px 0;
+    }
+
+    .help-body h3:first-of-type {
+      margin-top: 0;
+    }
+
+    .help-body ul, .help-body p {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+
+    .help-body li {
+      margin: 6px 0;
+    }
+
+    .help-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+    }
+
+    .help-body th, .help-body td {
+      border: 1px solid #2d3561;
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    .help-body th {
+      background: #0f3460;
+      color: #a29bfe;
+    }
+
+    .black-dot {
+      color: #a29bfe;
+      font-size: 16px;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    .white-dot {
+      color: #fd79a8;
+      font-size: 16px;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    .help-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #2d3561;
+      text-align: center;
+    }
+
+    .help-footer button {
+      background: #a29bfe;
+      color: #1a1a2e;
+      border: none;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 30px;
+    }
+
+    .help-footer button:hover {
+      background: #b8b3ff;
+      border: none;
+    }
+
+  </style>
+</head>
+<body>
+<h1>單線跳棋 <span class="ai-tag">Alpha-Beta AI</span></h1>
+<p class="subtitle">黑●(0–4) 向右走到 14–18 ｜ 白●(14–18) 向左走到 0–4</p>
+
+<div class="mode-bar">
+  <button class="mode-btn active" id="btn-pvp">雙人對戰</button>
+  <button class="mode-btn" id="btn-pva-b">玩家(黑) vs AI</button>
+  <button class="mode-btn" id="btn-pva-w">玩家(白) vs AI</button>
+  <button class="mode-btn" id="btn-edit">編輯局面</button>
+</div>
+
+<div id="edit-note" class="edit-note" style="display:none">
+  編輯模式：點空格放黑棋→白棋→清空，完成後按「結束編輯」
+</div>
+
+<div class="board-wrap">
+  <div class="label-row" id="label-row"></div>
+  <div class="cells" id="cells"></div>
+</div>
+
+<div class="info-bar">
+  <div class="info-card" id="black-card">
+    <div class="val" id="black-dest">0/5</div>
+    <div class="lbl">黑方到達</div>
+  </div>
+  <div class="info-card" id="turn-card">
+    <div class="val" id="turn-disp">黑方</div>
+    <div class="lbl">輪到</div>
+  </div>
+  <div class="info-card" id="white-card">
+    <div class="val" id="white-dest">0/5</div>
+    <div class="lbl">白方到達</div>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button id="undo-btn" onclick="window.undoMove()">悔棋</button>
+  <button onclick="window.resetGame()">重新開始</button>
+  <button onclick="window.analyzePosition()">AI分析</button>
+  <button id="help-btn" onclick="window.showHelp()">📖 遊戲說明</button>
+</div>
+
+<div class="analysis-box" id="analysis-box">
+  <h3>分析面板</h3>
+  <div class="analysis-line info">歡迎！AI採用Alpha-Beta剪枝+啟發式評估。選擇模式開始遊戲。</div>
+</div>
+
+<div id="overlay" class="overlay" style="display:none">
+  <div class="dialog">
+    <div class="big" id="dlg-icon">🏆</div>
+    <h2 id="dlg-title">遊戲結束</h2>
+    <p id="dlg-body">恭喜！</p>
+    <div class="dialog-btns">
+      <button onclick="window.resetGame()">再玩一局</button>
+      <button onclick="window.closeDialog()">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div id="help-overlay" class="overlay" style="display:none">
+  <div class="help-dialog">
+    <div class="help-header">
+      <h2>📖 單線跳棋 遊戲說明</h2>
+      <button onclick="window.closeHelp()" class="help-close">✕</button>
+    </div>
+    <div class="help-body">
+      <h3>🎯 遊戲目標</h3>
+      <p>最先將自身顏色的<strong>5支棋子</strong>全部移動到對角終點區者獲勝。</p>
+      <ul>
+        <li><span class="black-dot">●</span> <strong>黑方</strong>：從棋位 <strong>0~4</strong> 出發，向右移動到 <strong>14~18</strong></li>
+        <li><span class="white-dot">●</span> <strong>白方</strong>：從棋位 <strong>14~18</strong> 出發，向左移動到 <strong>0~4</strong></li>
+      </ul>
+
+      <h3>🚶 移動方式</h3>
+      <table>
+        <tr><th>方式</th><th>說明</th></tr>
+        <tr><td>🚶 步行</td><td>向前移動 <strong>1 格</strong>到相鄰的空位</td></tr>
+        <tr><td>🦘 跳行</td><td>跳過相鄰的棋子（<strong>己方或對方皆可</strong>），落在後方空位，<strong>可連續跳躍</strong></td></tr>
+        <tr><td>💥 大跳</td><td>當<strong>所有棋子都無法步行或跳行</strong>時，由<strong>最前面</strong>的棋子跳過連續相連的棋子，落在對方連續棋子結束後第一個空格</td></tr>
+      </table>
+
+      <h3>🎮 操作方式</h3>
+      <ul>
+        <li><strong>點擊棋子</strong>：選中你的棋子（會顯示藍色邊框）</li>
+        <li><strong>點擊綠色格子</strong>：將棋子移動到該位置</li>
+        <li><strong>AI分析</strong>：顯示 AI 推薦的最佳走法（藍色=起點，綠色=終點）</li>
+        <li><strong>悔棋</strong>：回到上一步（AI對戰模式會退回兩步）</li>
+        <li><strong>編輯局面</strong>：自訂棋盤配置，點擊格子循環切換 空→黑棋→白棋</li>
+      </ul>
+
+      <h3>🤖 AI 說明</h3>
+      <p>AI 採用 <strong>Alpha-Beta 剪枝算法</strong>，搜尋深度為 5 層，並使用啟發式評估函數選擇最佳走法。</p>
+    </div>
+    <div class="help-footer">
+      <button onclick="window.closeHelp()">開始對奕</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const N = 19;
+
+    let pow3 = new Array(N+1);
+    pow3[0] = 1n;
+    for(let i=1;i<=N;i++) pow3[i]=pow3[i-1]*3n;
+
+    function getCell(board, pos) {
+      return Number((board / pow3[pos]) % 3n);
+    }
+    function setCell(board, pos, val) {
+      let old = Number((board / pow3[pos]) % 3n);
+      return board + BigInt(val - old) * pow3[pos];
+    }
+
+    let initBoard = 0n;
+    for(let i=0; i<=4; i++) initBoard = setCell(initBoard, i, 1);
+    for(let i=14; i<=18; i++) initBoard = setCell(initBoard, i, 2);
+
+    class GameState {
+      constructor(board, turn, db_b, db_w) {
+        this.board = board;
+        this.turn = turn;
+        this.db_b = db_b;
+        this.db_w = db_w;
+      }
+      clone() {
+        return new GameState(this.board, this.turn, this.db_b, this.db_w);
+      }
+    }
+
+    function canMoveOrJump(board, pos, dir) {
+      let next = pos + dir;
+      if(next>=0 && next<N && getCell(board, next)===0) return true;
+      let visited = new Array(N).fill(false);
+      visited[pos] = true;
+      let queue = [pos];
+      let tempBoard = setCell(board, pos, 0);
+      while(queue.length) {
+        let cur = queue.shift();
+        let over = cur + dir, land = cur + 2*dir;
+        if(over>=0 && over<N && land>=0 && land<N) {
+          if(getCell(tempBoard, over)!==0 && getCell(tempBoard, land)===0) {
+            if(!visited[land]) {
+              visited[land] = true;
+              queue.push(land);
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function getTargetsFromPiece(board, from, dir) {
+      let targets = [];
+      let tempBoard = setCell(board, from, 0);
+      let oneStep = from + dir;
+      if(oneStep>=0 && oneStep<N && getCell(board, oneStep)===0) {
+        targets.push(oneStep);
+      }
+      let visited = new Array(N).fill(false);
+      visited[from] = true;
+      let queue = [from];
+      while(queue.length) {
+        let cur = queue.shift();
+        let over = cur + dir, land = cur + 2*dir;
+        if(over>=0 && over<N && land>=0 && land<N) {
+          if(getCell(tempBoard, over)!==0 && getCell(tempBoard, land)===0) {
+            if(!visited[land]) {
+              visited[land] = true;
+              queue.push(land);
+              targets.push(land);
+            }
+          }
+        }
+      }
+      return [...new Set(targets)];
+    }
+
+    function applyMovePiece(state, from, to) {
+      let newBoard = setCell(state.board, from, 0);
+      let newDb_b = state.db_b;
+      let newDb_w = state.db_w;
+      let myVal = state.turn === 0 ? 1 : 2;
+
+      if(state.turn === 0 && to >= 14 && to <= 18) {
+        newDb_b++;
+      } else if(state.turn === 1 && to >= 0 && to <= 4) {
+        newDb_w++;
+      } else {
+        newBoard = setCell(newBoard, to, myVal);
+      }
+      return new GameState(newBoard, 1-state.turn, newDb_b, newDb_w);
+    }
+
+    function getAllMoves(state) {
+      let board = state.board;
+      let turn = state.turn;
+      let myVal = turn === 0 ? 1 : 2;
+      let dir = turn === 0 ? 1 : -1;
+      let moves = [];
+
+      let myPieces = [];
+      for(let i=0;i<N;i++) if(getCell(board,i) === myVal) myPieces.push(i);
+
+      let anyAble = false;
+      for(let p of myPieces) {
+        if(canMoveOrJump(board, p, dir)) { anyAble = true; break; }
+      }
+
+      if(!anyAble) {
+        if(myPieces.length === 0) return [];
+        let frontPiece = turn===0 ? Math.max(...myPieces) : Math.min(...myPieces);
+        let scan = frontPiece + dir;
+        let blockCnt = 0;
+        while(scan>=0 && scan<N && getCell(board, scan)!==0) { blockCnt++; scan+=dir; }
+        if(blockCnt >= 2 && scan>=0 && scan<N) {
+          let newState = applyMovePiece(state, frontPiece, scan);
+          if(newState) moves.push(newState);
+        }
+        return moves;
+      }
+
+      for(let from of myPieces) {
+        if(!canMoveOrJump(board, from, dir)) continue;
+        let targets = getTargetsFromPiece(board, from, dir);
+        for(let to of targets) {
+          let newState = applyMovePiece(state, from, to);
+          if(newState) moves.push(newState);
+        }
+      }
+
+      let unique = new Map();
+      for(let s of moves) {
+        let key = `${s.board.toString()}|${s.db_b}|${s.db_w}`;
+        if(!unique.has(key)) unique.set(key, s);
+      }
+      return Array.from(unique.values());
+    }
+
+    function evaluateState(state) {
+      if(state.db_b >= 5) return 10000;
+      if(state.db_w >= 5) return -10000;
+
+      let board = state.board;
+      let score = 0;
+      score += state.db_b * 800;
+      score -= state.db_w * 800;
+
+      for(let i=0;i<N;i++) {
+        let val = getCell(board, i);
+        if(val === 1) {
+          let progress = (i - 0) / 18.0;
+          score += 30 * progress;
+          if(i >= 14) score += 60;
+        } else if(val === 2) {
+          let progress = (18 - i) / 18.0;
+          score -= 30 * progress;
+          if(i <= 4) score -= 60;
+        }
+      }
+
+      let blackMoves = getAllMoves(new GameState(state.board, 0, state.db_b, state.db_w)).length;
+      let whiteMoves = getAllMoves(new GameState(state.board, 1, state.db_b, state.db_w)).length;
+      score += blackMoves * 5;
+      score -= whiteMoves * 5;
+
+      return score;
+    }
+
+    let nodesSearched = 0;
+    function alphaBeta(state, depth, alpha, beta, isMaximizing) {
+      nodesSearched++;
+      if(depth === 0) return evaluateState(state);
+      if(state.db_b >= 5) return 10000 + depth;
+      if(state.db_w >= 5) return -10000 - depth;
+
+      let moves = getAllMoves(state);
+      if(moves.length === 0) {
+        return isMaximizing ? -10000 : 10000;
+      }
+
+      moves.sort((a,b) => {
+        let scA = evaluateState(a);
+        let scB = evaluateState(b);
+        return isMaximizing ? scB - scA : scA - scB;
+      });
+
+      if(isMaximizing) {
+        let maxEval = -Infinity;
+        for(let move of moves) {
+          let eval = alphaBeta(move, depth-1, alpha, beta, false);
+          maxEval = Math.max(maxEval, eval);
+          alpha = Math.max(alpha, eval);
+          if(beta <= alpha) break;
+        }
+        return maxEval;
+      } else {
+        let minEval = Infinity;
+        for(let move of moves) {
+          let eval = alphaBeta(move, depth-1, alpha, beta, true);
+          minEval = Math.min(minEval, eval);
+          beta = Math.min(beta, eval);
+          if(beta <= alpha) break;
+        }
+        return minEval;
+      }
+    }
+
+    function getBestMove(state, depth = 5) {
+      let moves = getAllMoves(state);
+      if(moves.length === 0) return null;
+      for(let mv of moves) {
+        if((state.turn===0 && mv.db_b>=5) || (state.turn===1 && mv.db_w>=5))
+          return mv;
+      }
+      let bestMove = null;
+      let bestValue = (state.turn === 0) ? -Infinity : Infinity;
+      nodesSearched = 0;
+      for(let move of moves) {
+        let val = alphaBeta(move, depth-1, -Infinity, Infinity, state.turn===1);
+        if(state.turn === 0) {
+          if(val > bestValue) { bestValue = val; bestMove = move; }
+        } else {
+          if(val < bestValue) { bestValue = val; bestMove = move; }
+        }
+      }
+      return bestMove;
+    }
+
+    let currentState = new GameState(initBoard, 0, 0, 0);
+    let historyStack = [];
+    let selectedPos = -1;
+    let moveTargets = [];
+    let gameMode = 'pvp';
+    let editMode = false;
+    let gameOverFlag = false;
+    let aiThinking = false;
+
+    function renderBoard() {
+      for(let i=0;i<N;i++) {
+        let cellDiv = document.getElementById('cell-'+i);
+        if(!cellDiv) continue;
+        let val = getCell(currentState.board, i);
+        let existing = cellDiv.querySelector('.piece');
+        if(existing) existing.remove();
+        if(val === 1) {
+          let piece = document.createElement('div');
+          piece.className = 'piece black';
+          piece.textContent = '●';
+          cellDiv.appendChild(piece);
+        } else if(val === 2) {
+          let piece = document.createElement('div');
+          piece.className = 'piece white';
+          piece.textContent = '●';
+          cellDiv.appendChild(piece);
+        }
+        cellDiv.classList.remove('selected', 'movable');
+        if(i === selectedPos) cellDiv.classList.add('selected');
+        if(moveTargets.includes(i)) cellDiv.classList.add('movable');
+      }
+      let blackDest = document.getElementById('black-dest');
+      let whiteDest = document.getElementById('white-dest');
+      if(blackDest) blackDest.textContent = `${currentState.db_b}/5`;
+      if(whiteDest) whiteDest.textContent = `${currentState.db_w}/5`;
+      let turnDisp = document.getElementById('turn-disp');
+      let turnCard = document.getElementById('turn-card');
+      if(turnDisp) turnDisp.textContent = currentState.turn === 0 ? '黑方' : '白方';
+      if(turnCard) turnCard.className = 'info-card ' + (currentState.turn===0 ? 'turn-black' : 'turn-white');
+      let undoBtn = document.getElementById('undo-btn');
+      if(undoBtn) undoBtn.disabled = historyStack.length===0 || gameOverFlag;
+    }
+
+    function setAnalysisMessage(lines) {
+      let box = document.getElementById('analysis-box');
+      if(box) {
+        box.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><h3 style="margin:0;">分析面板</h3><button onclick="window.closeAnalysis()" style="padding:2px 8px; font-size:11px; background:#2d3561; border:none; color:#fff; cursor:pointer; border-radius:4px;">✕ 關閉</button></div>' + lines.map(l => `<div class="analysis-line ${l.cls}">${l.txt}</div>`).join('');
+      }
+    }
+
+    window.closeAnalysis = function() {
+      let analysisBox = document.getElementById('analysis-box');
+      if(analysisBox) analysisBox.style.display = 'none';
+    };
+
+    window.analyzePosition = function() {
+      let analysisBox = document.getElementById('analysis-box');
+      if(analysisBox) analysisBox.style.display = 'block';
+
+      if(gameOverFlag) {
+        setAnalysisMessage([{cls:'info', txt:'遊戲已結束，請重新開始。'}]);
+        return;
+      }
+
+      let evalScore = evaluateState(currentState);
+      let turnStr = currentState.turn === 0 ? '黑方' : '白方';
+      let lines = [];
+      lines.push({cls:'info', txt:`當前局面: ${turnStr} 行動 | 黑到達 ${currentState.db_b}/5, 白到達 ${currentState.db_w}/5`});
+      lines.push({cls: evalScore>0 ? 'win' : (evalScore<0 ? 'lose' : 'draw'), txt:`靜態評估分數: ${evalScore.toFixed(1)} (正=黑優, 負=白優)`});
+
+      // 找出 AI 推薦的最佳走法
+      let bestMove = getBestMove(currentState, 5);
+      if(bestMove) {
+        // 找出從哪裡移動到哪裡
+        let fromPos = -1;
+        let toPos = -1;
+
+        // 比對 currentState 和 bestMove 的差異
+        for(let i = 0; i < N; i++) {
+          let oldVal = getCell(currentState.board, i);
+          let newVal = getCell(bestMove.board, i);
+
+          // 原本有棋子，新狀態沒有 -> 起始位置
+          if(oldVal !== 0 && newVal === 0) {
+            fromPos = i;
+          }
+          // 原本沒有棋子，新狀態有 -> 目標位置
+          if(oldVal === 0 && newVal !== 0) {
+            toPos = i;
+          }
+        }
+
+        // 處理到達終點的情況（棋子消失）
+        if(fromPos !== -1 && toPos === -1) {
+          if(currentState.turn === 0 && bestMove.db_b > currentState.db_b) {
+            lines.push({cls:'win', txt:`🤖 AI 推薦走法: 從 ${fromPos} 移動到 終點區 (黑方到達+1)`});
+          } else if(currentState.turn === 1 && bestMove.db_w > currentState.db_w) {
+            lines.push({cls:'win', txt:`🤖 AI 推薦走法: 從 ${fromPos} 移動到 終點區 (白方到達+1)`});
+          }
+        } else if(fromPos !== -1 && toPos !== -1) {
+          lines.push({cls:'win', txt:`🤖 AI 推薦走法: 從 ${fromPos} → ${toPos}`});
+        }
+
+        // 高亮顯示推薦走法
+        if(fromPos !== -1) {
+          // 清除舊的高亮
+          for(let i = 0; i < N; i++) {
+            let cellDiv = document.getElementById('cell-'+i);
+            if(cellDiv) {
+              cellDiv.classList.remove('ai-from', 'ai-to');
+            }
+          }
+          // 高亮起始格（藍色）
+          let fromCell = document.getElementById('cell-'+fromPos);
+          if(fromCell) fromCell.classList.add('ai-from');
+
+          // 高亮目標格（綠色）
+          if(toPos !== -1) {
+            let toCell = document.getElementById('cell-'+toPos);
+            if(toCell) toCell.classList.add('ai-to');
+          }
+        }
+      } else {
+        lines.push({cls:'lose', txt:`⚠️ 沒有找到合法走法`});
+      }
+
+      let moves = getAllMoves(currentState);
+      lines.push({cls:'info', txt:`合法走法數量: ${moves.length}`});
+      setAnalysisMessage(lines);
+      renderBoard();
+    };
+
+    function checkGameOver() {
+      if(currentState.db_b >= 5) {
+        gameOverFlag = true;
+        showDialog('黑方勝利！', '所有黑棋抵達終點區！', '🏆');
+        renderBoard();
+        return true;
+      }
+      if(currentState.db_w >= 5) {
+        gameOverFlag = true;
+        showDialog('白方勝利！', '所有白棋抵達終點區！', '🏆');
+        renderBoard();
+        return true;
+      }
+      let moves = getAllMoves(currentState);
+      if(moves.length === 0) {
+        gameOverFlag = true;
+        let winner = currentState.turn === 0 ? '白方勝利！' : '黑方勝利！';
+        showDialog(winner, '對方無法移動，獲勝！', '🏆');
+        renderBoard();
+        return true;
+      }
+      return false;
+    }
+
+    function applyAndCommitMove(newState) {
+      historyStack.push(currentState.clone());
+      currentState = newState;
+      selectedPos = -1;
+      moveTargets = [];
+      renderBoard();
+      return checkGameOver();
+    }
+
+    function isHumanTurn() {
+      if(gameMode === 'pvp') return true;
+      if(gameMode === 'pva-black') return currentState.turn === 0;
+      if(gameMode === 'pva-white') return currentState.turn === 1;
+      return false;
+    }
+
+    function afterHumanMove() {
+      if(gameOverFlag) return;
+      if(gameMode === 'pvp') return;
+      if((gameMode === 'pva-black' && currentState.turn === 1) ||
+              (gameMode === 'pva-white' && currentState.turn === 0)) {
+        setTimeout(() => doAIMove(), 200);
+      }
+    }
+
+    function doAIMove() {
+      if(gameOverFlag || aiThinking) return;
+      if(!((gameMode === 'pva-black' && currentState.turn === 1) ||
+              (gameMode === 'pva-white' && currentState.turn === 0))) return;
+      aiThinking = true;
+      setAnalysisMessage([{cls:'info', txt:'AI 思考中 ...'}]);
+      setTimeout(() => {
+        let best = getBestMove(currentState, 5);
+        aiThinking = false;
+        if(best && !gameOverFlag) {
+          applyAndCommitMove(best);
+          if(!gameOverFlag && !isHumanTurn() &&
+                  ((gameMode === 'pva-black' && currentState.turn === 1) ||
+                          (gameMode === 'pva-white' && currentState.turn === 0))) {
+            setTimeout(() => doAIMove(), 200);
+          }
+        }
+
+      }, 20);
+    }
+
+    function onCellClick(idx) {
+      if(gameOverFlag) return;
+      if(editMode) { doEditCell(idx); return; }
+      if(!isHumanTurn()) return;
+
+      let val = getCell(currentState.board, idx);
+      let myVal = currentState.turn === 0 ? 1 : 2;
+
+      // 處理一般移動/跳躍
+      if(moveTargets.includes(idx) && selectedPos !== -1) {
+        let moves = getAllMoves(currentState);
+        for(let ns of moves) {
+          let fromGone = (getCell(currentState.board, selectedPos)!==0 && getCell(ns.board, selectedPos)===0);
+          let toArrive = false;
+          if(currentState.turn===0 && ns.db_b > currentState.db_b) toArrive = true;
+          if(currentState.turn===1 && ns.db_w > currentState.db_w) toArrive = true;
+          let ontoCell = (getCell(currentState.board, idx)===0 && getCell(ns.board, idx)!==0);
+          if(fromGone && (ontoCell || toArrive)) {
+            applyAndCommitMove(ns);
+            afterHumanMove();
+            return;
+          }
+        }
+      }
+
+      // 🆕 處理大跳：當有選中棋子，但點擊的格子不在 moveTargets 中
+      else if(selectedPos !== -1 && !moveTargets.includes(idx)) {
+        let bigJumpMoves = getBigJumpMoves(currentState);
+        for(let ns of bigJumpMoves) {
+          let fromGone = (getCell(currentState.board, selectedPos)!==0 && getCell(ns.board, selectedPos)===0);
+          let ontoCell = (getCell(currentState.board, idx)===0 && getCell(ns.board, idx)!==0);
+
+          if(fromGone && ontoCell) {
+            applyAndCommitMove(ns);
+            afterHumanMove();
+            return;
+          }
+        }
+        // 不是有效的大跳走法，清除選擇
+        selectedPos = -1;
+        moveTargets = [];
+        renderBoard();
+        return;
+      }
+
+      // 選擇棋子
+      if(val === myVal) {
+        selectedPos = idx;
+        let dir = currentState.turn === 0 ? 1 : -1;
+        moveTargets = getTargetsFromPiece(currentState.board, idx, dir);
+        renderBoard();
+      } else {
+        selectedPos = -1;
+        moveTargets = [];
+        renderBoard();
+      }
+    }
+
+    window.undoMove = function() {
+      if(gameOverFlag || historyStack.length === 0 || aiThinking) return;
+      if(gameMode !== 'pvp' && historyStack.length >= 2) {
+        currentState = historyStack.pop();
+        currentState = historyStack.pop();
+      } else if(historyStack.length >= 1) {
+        currentState = historyStack.pop();
+      }
+      selectedPos = -1;
+      moveTargets = [];
+      gameOverFlag = false;
+      document.getElementById('overlay').style.display = 'none';
+      renderBoard();
+
+    };
+
+    window.resetGame = function() {
+      currentState = new GameState(initBoard, 0, 0, 0);
+      historyStack = [];
+      selectedPos = -1;
+      moveTargets = [];
+      gameOverFlag = false;
+      aiThinking = false;
+      document.getElementById('overlay').style.display = 'none';
+      renderBoard();
+
+      // pva-white: 玩家控制白方(turn=1)，AI控制黑方(turn=0)，黑方先手，AI先動
+      if(gameMode === 'pva-white') {
+        setTimeout(() => doAIMove(), 400);
+      }
+    };
+
+    window.setMode = function(mode) {
+      gameMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      if(mode === 'pvp') document.getElementById('btn-pvp').classList.add('active');
+      if(mode === 'pva-black') document.getElementById('btn-pva-b').classList.add('active');
+      if(mode === 'pva-white') document.getElementById('btn-pva-w').classList.add('active');
+      if(editMode) window.toggleEdit();
+      window.resetGame();
+    };
+
+    window.toggleEdit = function() {
+      editMode = !editMode;
+      let btn = document.getElementById('btn-edit');
+      let note = document.getElementById('edit-note');
+      if(editMode) {
+        btn.textContent = '結束編輯';
+        btn.classList.add('active');
+        note.style.display = '';
+        setAnalysisMessage([{cls:'info', txt:'編輯模式：點擊格子循環 空→黑棋→白棋→空'}]);
+      } else {
+        btn.textContent = '編輯局面';
+        btn.classList.remove('active');
+        note.style.display = 'none';
+        let nb=0, nw=0;
+        for(let i=14;i<=18;i++) if(getCell(currentState.board, i)===0) nb++;
+        for(let i=0;i<=4;i++) if(getCell(currentState.board, i)===0) nw++;
+        currentState.db_b = 5 - nb;
+        currentState.db_w = 5 - nw;
+        selectedPos = -1;
+        moveTargets = [];
+        renderBoard();
+
+      }
+    };
+
+    function getBigJumpMoves(state) {
+      let board = state.board;
+      let turn = state.turn;
+      let myVal = turn === 0 ? 1 : 2;
+      let dir = turn === 0 ? 1 : -1;
+      let moves = [];
+
+      let myPieces = [];
+      for(let i=0;i<N;i++) if(getCell(board,i) === myVal) myPieces.push(i);
+
+      // 檢查是否有任何棋子可以移動或跳躍
+      let anyAble = false;
+      for(let p of myPieces) {
+        if(canMoveOrJump(board, p, dir)) { anyAble = true; break; }
+      }
+
+      // 只有在沒有任何合法走法時才觸發大跳
+      if(!anyAble && myPieces.length > 0) {
+        let frontPiece = turn === 0 ? Math.max(...myPieces) : Math.min(...myPieces);
+        let scan = frontPiece + dir;
+        // 跳過連續的棋子
+        while(scan >= 0 && scan < N && getCell(board, scan) !== 0) {
+          scan += dir;
+        }
+        // 落在第一個空格
+        if(scan >= 0 && scan < N) {
+          let newState = applyMovePiece(state, frontPiece, scan);
+          if(newState) moves.push(newState);
+        }
+      }
+
+      return moves;
+    }
+
+    function doEditCell(idx) {
+      let v = getCell(currentState.board, idx);
+      let nv = (v+1)%3;
+      currentState.board = setCell(currentState.board, idx, nv);
+      renderBoard();
+    }
+
+    function showDialog(title, body, icon) {
+      document.getElementById('dlg-icon').textContent = icon;
+      document.getElementById('dlg-title').textContent = title;
+      document.getElementById('dlg-body').textContent = body;
+      document.getElementById('overlay').style.display = 'flex';
+    }
+
+    window.closeDialog = function() {
+      document.getElementById('overlay').style.display = 'none';
+    };
+
+    function buildBoardUI() {
+      let lr = document.getElementById('label-row');
+      let cs = document.getElementById('cells');
+      if(!lr || !cs) return;
+      lr.innerHTML = '';
+      cs.innerHTML = '';
+      for(let i=0;i<N;i++) {
+        let lbl = document.createElement('div');
+        lbl.className = 'label';
+        if(i>=0 && i<=4) lbl.className += ' dest-white';
+        if(i>=14 && i<=18) lbl.className += ' dest-black';
+        lbl.textContent = i;
+        lr.appendChild(lbl);
+        let cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.id = 'cell-'+i;
+        cell.dataset.idx = i;
+        let idxSpan = document.createElement('div');
+        idxSpan.className = 'cell-idx';
+        cell.appendChild(idxSpan);
+        cell.addEventListener('click', (function(idx) {
+          return function(e) {
+            e.stopPropagation();
+            onCellClick(idx);
+          };
+        })(i));
+        cs.appendChild(cell);
+      }
+    }
+
+
+    window.onCellClick = onCellClick;
+    window.analyzePosition = window.analyzePosition;
+    window.undoMove = window.undoMove;
+    window.resetGame = window.resetGame;
+    window.setMode = window.setMode;
+    window.toggleEdit = window.toggleEdit;
+    window.closeDialog = window.closeDialog;
+    window.doAIMove = doAIMove;
+
+    window.showHelp = function() {
+      document.getElementById('help-overlay').style.display = 'flex';
+    };
+
+    window.closeHelp = function() {
+      document.getElementById('help-overlay').style.display = 'none';
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      buildBoardUI();
+      renderBoard();
+
+      let analysisBox = document.getElementById('analysis-box');
+      if(analysisBox) analysisBox.style.display = 'none';
+
+      let btnPvp = document.getElementById('btn-pvp');
+      let btnPvaB = document.getElementById('btn-pva-b');
+      let btnPvaW = document.getElementById('btn-pva-w');
+      let btnEdit = document.getElementById('btn-edit');
+
+      if(btnPvp) btnPvp.onclick = function() { window.setMode('pvp'); };
+      if(btnPvaB) btnPvaB.onclick = function() { window.setMode('pva-black'); };
+      if(btnPvaW) btnPvaW.onclick = function() { window.setMode('pva-white'); };
+      if(btnEdit) btnEdit.onclick = function() { window.toggleEdit(); };
+
+      if(gameMode === 'pva-white') {
+        setTimeout(function() { if(window.doAIMove) window.doAIMove(); }, 400);
+      }
+    });
+
+  })();
+</script>
+</body>
+</html>
